@@ -13,6 +13,7 @@ import type {
 import { loadOpenClawBundle } from "../openclaw/bundle-v1.js";
 import { stableCompactStringify } from "../stable-json.js";
 import { DEFAULT_PROFILE } from "../version.js";
+import { extractSpawnEvidence } from "./relationships.js";
 
 const RELATIONSHIP_KINDS = new Set<RelationshipKind>([
   "native-subagent",
@@ -87,36 +88,66 @@ export async function loadCapturedFamilyFromGraph(
     const bundle = await loadOpenClawBundle(await resolveBundle(bundleRoot, graphNode.bundleDir));
     if (bundle.manifest.sessionKey && bundle.manifest.sessionKey !== graphNode.sessionKey)
       throw new Error(`Bundle graph key mismatch: ${graphNode.sessionKey}`);
-    const row = { key: graphNode.sessionKey, sessionId: bundle.manifest.sessionId };
-    const source: SourceNode = {
+    nodes.set(graphNode.sessionKey, {
       key: graphNode.sessionKey,
       sessionId: bundle.manifest.sessionId,
-      row,
+      row: {
+        key: graphNode.sessionKey,
+        sessionId: bundle.manifest.sessionId,
+        ...(graphNode.relationshipKind ? { kind: graphNode.relationshipKind } : {}),
+      },
       bundle,
-    };
-    if (graphNode.parentKey) {
-      const relationship: RelationshipEvidence = {
-        parentKey: graphNode.parentKey,
-        childKey: graphNode.sessionKey,
-        kind: graphNode.relationshipKind ?? "unknown-child",
-        listing: true,
-        ...(graphNode.toolCallId
-          ? { spawn: { toolCallId: graphNode.toolCallId, childSessionKey: graphNode.sessionKey } }
-          : {}),
-      };
-      source.parentKey = graphNode.parentKey;
-      source.relationship = relationship;
-      relationships.push(relationship);
-    }
-    nodes.set(source.key, source);
+    });
   }
   if (!nodes.has(graph.rootKey)) throw new Error("Bundle graph root is missing");
+  for (const graphNode of graph.nodes) {
+    if (!graphNode.parentKey) continue;
+    const source = nodes.get(graphNode.sessionKey);
+    const parent = nodes.get(graphNode.parentKey);
+    if (!source || !parent)
+      throw new Error(`Bundle graph parent is missing: ${graphNode.parentKey}`);
+    const matchingEvidence = extractSpawnEvidence(parent.bundle.events).filter(
+      (item) => item.childSessionKey === graphNode.sessionKey,
+    );
+    const spawn = graphNode.toolCallId
+      ? matchingEvidence.find((item) => item.toolCallId === graphNode.toolCallId)
+      : matchingEvidence.length === 1
+        ? matchingEvidence[0]
+        : undefined;
+    if (graphNode.toolCallId && !spawn)
+      throw new Error(
+        `Bundle graph toolCallId is not proven by the parent bundle: ${graphNode.toolCallId}`,
+      );
+    const relationship: RelationshipEvidence = {
+      parentKey: graphNode.parentKey,
+      childKey: graphNode.sessionKey,
+      kind: graphNode.relationshipKind ?? "unknown-child",
+      listing: true,
+      ...(spawn ? { spawn } : {}),
+    };
+    source.parentKey = graphNode.parentKey;
+    source.relationship = relationship;
+    relationships.push(relationship);
+  }
   const roots = [...nodes.values()].filter((node) => !node.parentKey);
   if (roots.length !== 1 || roots[0]?.key !== graph.rootKey)
     throw new Error("Bundle graph must have one declared root");
-  for (const relationship of relationships)
-    if (!nodes.has(relationship.parentKey))
-      throw new Error(`Bundle graph parent is missing: ${relationship.parentKey}`);
+  const childrenByParent = new Map<string, string[]>();
+  for (const relationship of relationships) {
+    const children = childrenByParent.get(relationship.parentKey) ?? [];
+    children.push(relationship.childKey);
+    childrenByParent.set(relationship.parentKey, children);
+  }
+  const reachable = new Set<string>();
+  const queue = [graph.rootKey];
+  while (queue.length > 0) {
+    const key = queue.shift();
+    if (!key || reachable.has(key)) continue;
+    reachable.add(key);
+    queue.push(...(childrenByParent.get(key) ?? []));
+  }
+  if (reachable.size !== nodes.size)
+    throw new Error("Bundle graph contains nodes that are not reachable from the root");
   const hash = createHash("sha256").update(stableCompactStringify(graph)).digest("hex");
   return {
     rootKey: graph.rootKey,

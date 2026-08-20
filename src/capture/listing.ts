@@ -42,9 +42,14 @@ function fingerprintRow(row: SessionListingRow): Record<string, unknown> {
     spawnedBy: row.spawnedBy,
     forkSourceSessionId: row.forkSourceSessionId,
     forkSourceEntryId: row.forkSourceEntryId,
+    forkSource: row.forkSource,
+    forkedFromParent: row.forkedFromParent,
     archivedAt: row.archivedAt,
     agentHarnessId: row.agentHarnessId,
     acpOwned: row.acpOwned,
+    acpRuntime: row.acpRuntime,
+    model: row.model,
+    modelProvider: row.modelProvider,
   };
 }
 

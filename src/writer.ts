@@ -1,6 +1,6 @@
 /* eslint-disable complexity -- Atomic recovery requires explicit transaction-state checks. */
 import { createHash, randomUUID } from "node:crypto";
-import { access, chmod, mkdir, open, readdir, readFile, rename, rm } from "node:fs/promises";
+import { access, chmod, lstat, mkdir, open, readdir, readFile, rename, rm } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 
 export class OutputConflictError extends Error {
@@ -78,8 +78,13 @@ export async function writeAtomicFile(
   await ensureDirectory(parent);
   const digest = sha256(content);
   if (await exists(destination)) {
+    const details = await lstat(destination);
+    if (!details.isFile() || details.isSymbolicLink()) throw new OutputConflictError(destination);
     const current = await readFile(destination, "utf8");
-    if (current === content) return { path: destination, sha256: digest, idempotent: true };
+    if (current === content) {
+      await chmod(destination, 0o600);
+      return { path: destination, sha256: digest, idempotent: true };
+    }
     if (!force) throw new OutputConflictError(destination);
   }
 
@@ -110,14 +115,30 @@ async function directoryMatches(
   files: ReadonlyMap<string, string>,
 ): Promise<boolean> {
   if (!(await exists(destination))) return false;
+  const destinationDetails = await lstat(destination);
+  if (!destinationDetails.isDirectory() || destinationDetails.isSymbolicLink())
+    throw new OutputConflictError(destination);
   const names = (await readdir(destination)).sort();
   const expected = [...files.keys()].sort();
   if (names.length !== expected.length || names.some((name, index) => name !== expected[index]))
     return false;
   for (const [name, content] of files) {
-    if ((await readFile(join(destination, name), "utf8")) !== content) return false;
+    const path = join(destination, name);
+    const details = await lstat(path);
+    if (!details.isFile() || details.isSymbolicLink()) throw new OutputConflictError(path);
+    if ((await readFile(path, "utf8")) !== content) return false;
   }
   return true;
+}
+
+async function secureExistingDirectory(
+  destination: string,
+  files: ReadonlyMap<string, string>,
+): Promise<void> {
+  await chmod(destination, 0o700);
+  for (const name of files.keys()) await chmod(join(destination, name), 0o600);
+  await syncDirectory(destination);
+  await syncDirectory(dirname(destination));
 }
 
 async function directoryMatchesHashes(
@@ -125,12 +146,18 @@ async function directoryMatchesHashes(
   files: Readonly<Record<string, string>>,
 ): Promise<boolean> {
   if (!(await exists(destination))) return false;
+  const destinationDetails = await lstat(destination);
+  if (!destinationDetails.isDirectory() || destinationDetails.isSymbolicLink())
+    throw new OutputConflictError(destination);
   const names = (await readdir(destination)).sort();
   const expected = Object.keys(files).sort();
   if (names.length !== expected.length || names.some((name, index) => name !== expected[index]))
     return false;
   for (const [name, digest] of Object.entries(files)) {
-    if (sha256(await readFile(join(destination, name), "utf8")) !== digest) return false;
+    const path = join(destination, name);
+    const details = await lstat(path);
+    if (!details.isFile() || details.isSymbolicLink()) throw new OutputConflictError(path);
+    if (sha256(await readFile(path, "utf8")) !== digest) return false;
   }
   return true;
 }
@@ -186,7 +213,7 @@ async function loadDirectoryTransaction(
     const parsed: unknown = JSON.parse(await readFile(path, "utf8"));
     if (isDirectoryTransaction(parsed, destination)) return parsed;
   } catch {
-    // The path is not a transaction owned by pi-atif.
+    // The path is not a transaction owned by openclaw-atif.
   }
   throw new OutputConflictError(path);
 }
@@ -217,7 +244,7 @@ async function beginDirectoryTransaction(
   files: ReadonlyMap<string, string>,
 ): Promise<DirectoryTransaction> {
   const id = /\.openclaw-atif-([0-9a-f-]{36})\.tmp$/.exec(basename(stage))?.[1];
-  if (!id) throw new Error(`Invalid pi-atif staging path: ${stage}`);
+  if (!id) throw new Error(`Invalid openclaw-atif staging path: ${stage}`);
   const transaction: DirectoryTransaction = {
     schema: "openclaw-atif-directory-transaction-v1",
     id,
@@ -245,6 +272,7 @@ export async function writeAtomicDirectory(
   await recoverDirectory(destination);
 
   if (await directoryMatches(destination, files)) {
+    await secureExistingDirectory(destination, files);
     return [...files].map(([name, content]) => ({
       path: join(destination, name),
       sha256: sha256(content),

@@ -18,6 +18,7 @@ const OPTIONAL_FILES = new Set([
   "system-prompt.txt",
   "tools.json",
 ]);
+const KNOWN_FILES = new Set<string>([...REQUIRED_FILES, ...OPTIONAL_FILES]);
 export const DEFAULT_MAX_BUNDLE_BYTES = 64 * 1024 * 1024;
 export const DEFAULT_MAX_EVENTS = 250_000;
 
@@ -85,9 +86,26 @@ export async function loadOpenClawBundle(
   const manifest = bundleManifestSchema.parse(
     parseJsonObject(requiredContent(contents, "manifest.json"), "manifest.json"),
   );
-  for (const name of manifest.supplementalFiles ?? []) {
+  const declaredContents = new Map<string, number>();
+  for (const item of manifest.contents ?? []) {
+    if (!KNOWN_FILES.has(item.path))
+      throw new Error(`Unsupported declared bundle file: ${item.path}`);
+    if (declaredContents.has(item.path))
+      throw new Error(`Bundle manifest declares a file more than once: ${item.path}`);
+    declaredContents.set(item.path, item.bytes);
+  }
+  const optionalNames = new Set(manifest.supplementalFiles ?? []);
+  for (const name of declaredContents.keys()) if (OPTIONAL_FILES.has(name)) optionalNames.add(name);
+  for (const name of optionalNames) {
     if (!OPTIONAL_FILES.has(name)) throw new Error(`Unsupported supplemental bundle file: ${name}`);
     contents.set(name, await readRegularFile(root, name, maxBytes));
+  }
+  const totalBytes = [...contents.values()].reduce((sum, content) => sum + content.byteLength, 0);
+  if (totalBytes > maxBytes) throw new Error("Bundle exceeds total size limit");
+  for (const [name, bytes] of declaredContents) {
+    const content = contents.get(name);
+    if (content?.byteLength !== bytes)
+      throw new Error(`Bundle file size does not match manifest: ${name}`);
   }
   const events = parseEvents(requiredContent(contents, "events.jsonl"), maxEvents);
   const runtimeCount = events.filter((event) => event.source === "runtime").length;
@@ -104,6 +122,14 @@ export async function loadOpenClawBundle(
       throw new Error(`Bundle event sequence is not contiguous at row ${String(index + 1)}`);
     if (event.sessionId !== manifest.sessionId)
       throw new Error(`Bundle event sessionId mismatch at row ${String(index + 1)}`);
+    if (event.traceId !== manifest.traceId)
+      throw new Error(`Bundle event traceId mismatch at row ${String(index + 1)}`);
+    if (
+      event.sessionKey !== undefined &&
+      manifest.sessionKey !== undefined &&
+      event.sessionKey !== manifest.sessionKey
+    )
+      throw new Error(`Bundle event sessionKey mismatch at row ${String(index + 1)}`);
   }
   const supplemental = new Map<string, unknown>();
   for (const [name, content] of contents) {

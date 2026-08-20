@@ -79,6 +79,31 @@ describe("loadOpenClawBundle", () => {
     await expect(loadOpenClawBundle(mismatch)).rejects.toThrow("sessionId mismatch");
   });
 
+  it("rejects trace and session-key identity mismatches", async () => {
+    const root = await mkdtemp(join(tmpdir(), "openclaw-atif-bundle-"));
+    const traceEvents = childEvents("session");
+    if (traceEvents[0]) traceEvents[0].traceId = "other-trace";
+    const traceMismatch = await writeBundle({
+      root,
+      name: "trace-mismatch",
+      sessionId: "session",
+      sessionKey: "agent:main:main",
+      events: traceEvents,
+    });
+    await expect(loadOpenClawBundle(traceMismatch)).rejects.toThrow("traceId mismatch");
+
+    const keyEvents = childEvents("session");
+    if (keyEvents[0]) keyEvents[0].sessionKey = "agent:main:other";
+    const keyMismatch = await writeBundle({
+      root,
+      name: "key-mismatch",
+      sessionId: "session",
+      sessionKey: "agent:main:main",
+      events: keyEvents,
+    });
+    await expect(loadOpenClawBundle(keyMismatch)).rejects.toThrow("sessionKey mismatch");
+  });
+
   it("rejects malformed rows and file limits", async () => {
     const root = await mkdtemp(join(tmpdir(), "openclaw-atif-bundle-"));
     const directory = await standardBundle(root);
@@ -95,12 +120,20 @@ describe("loadOpenClawBundle", () => {
     const directory = await standardBundle(root);
     const manifestPath = join(directory, "manifest.json");
     const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as Record<string, unknown>;
-    manifest.supplementalFiles = ["metadata.json", "system-prompt.txt"];
+    manifest.supplementalFiles = ["metadata.json"];
+    manifest.contents = [
+      { path: "system-prompt.txt", mediaType: "text/plain", bytes: 6 },
+      { path: "tools.json", mediaType: "application/json", bytes: 17 },
+    ];
     await writeFile(manifestPath, JSON.stringify(manifest));
     await writeFile(join(directory, "metadata.json"), '{"version":"test"}');
     await writeFile(join(directory, "system-prompt.txt"), "system");
+    await writeFile(join(directory, "tools.json"), '[{"name":"tool"}]');
     const bundle = await loadOpenClawBundle(directory);
     expect(bundle.supplemental.get("metadata.json")).toEqual({ version: "test" });
     expect(bundle.supplemental.get("system-prompt.txt")).toBe("system");
+    expect(bundle.supplemental.get("tools.json")).toEqual([{ name: "tool" }]);
+    expect(bundle.sourceHashes["system-prompt.txt"]).toMatch(/^[a-f0-9]{64}$/u);
+    expect(bundle.sourceHashes["tools.json"]).toMatch(/^[a-f0-9]{64}$/u);
   });
 });

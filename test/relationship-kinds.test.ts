@@ -4,16 +4,25 @@ import { event } from "./helpers.js";
 
 describe("relationship kinds and structured payloads", () => {
   it.each([
-    [{ key: "agent:main:acp:x", sessionId: "x" }, "acp-child"],
     [{ key: "agent:main:other", sessionId: "x", acpOwned: true }, "acp-child"],
-    [{ key: "agent:main:subagent:x", sessionId: "x" }, "native-subagent"],
+    [{ key: "agent:main:other", sessionId: "x", acpRuntime: true }, "acp-child"],
+    [{ key: "agent:main:other", sessionId: "x", acpRuntime: { backend: "acpx" } }, "acp-child"],
+    [{ key: "agent:main:acp:x", sessionId: "x", acpRuntime: false }, "unknown-child"],
+    [{ key: "agent:main:x", sessionId: "x", forkedFromParent: true }, "fork"],
     [{ key: "agent:main:x", sessionId: "x", forkSourceSessionId: "parent" }, "fork"],
+    [{ key: "agent:main:x", sessionId: "x", forkSource: null }, "unknown-child"],
     [{ key: "agent:main:x", sessionId: "x", kind: "visible-session" }, "visible-child"],
     [{ key: "agent:main:x", sessionId: "x", sessionKind: "cron" }, "cron"],
     [{ key: "agent:main:x", sessionId: "x", kind: "adopted" }, "adopted"],
     [{ key: "agent:main:x", sessionId: "x" }, "unknown-child"],
   ] as const)("classifies %j as %s", (row, kind) => {
     expect(classifyRelationship(row)).toBe(kind);
+  });
+
+  it("classifies an exact spawn relationship as a native subagent without key heuristics", () => {
+    expect(classifyRelationship({ key: "opaque-child", sessionId: "x" }, true)).toBe(
+      "native-subagent",
+    );
   });
 
   it("reads known child fields from details, arrays, and exact text JSON", () => {

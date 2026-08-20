@@ -226,12 +226,25 @@ describe("ATIF mapper edge cases", () => {
     ];
     const result = mapFamilyToAtif(family(events));
     expect(result.trajectory.steps[0]?.metrics).toEqual({
-      prompt_tokens: 0,
+      prompt_tokens: 5,
       cached_tokens: 0,
       extra: { cache_write_tokens: 5 },
     });
-    expect(result.trajectory.final_metrics?.total_prompt_tokens).toBe(0);
+    expect(result.trajectory.final_metrics?.total_prompt_tokens).toBe(5);
     expect(result.trajectory.final_metrics?.total_completion_tokens).toBeUndefined();
+  });
+
+  it("does not duplicate diagnostics already normalized at family scope", () => {
+    const snapshot = family([]);
+    const diagnostic = {
+      code: "source-warning",
+      message: "one source warning",
+      nodeKey: "agent:main:main",
+    };
+    snapshot.diagnostics.push(diagnostic);
+    snapshot.nodes.get("agent:main:main")?.diagnostics.push(diagnostic);
+    const result = mapFamilyToAtif(snapshot);
+    expect(result.diagnostics.filter((item) => item.code === "source-warning")).toHaveLength(1);
   });
 
   it("creates an explicit empty structural step for an unmappable bundle", () => {

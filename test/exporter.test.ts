@@ -12,7 +12,9 @@ async function fixture(listingOnly = false) {
     name: "root",
     sessionId: "root-session",
     sessionKey: "agent:main:main",
-    events: rootEvents(),
+    events: rootEvents()
+      .filter((item) => !listingOnly || item.type !== "tool.result")
+      .map((item, index) => ({ ...item, seq: index + 1 })),
   });
   await writeBundle({
     root,
