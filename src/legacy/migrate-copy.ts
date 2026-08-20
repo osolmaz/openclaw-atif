@@ -1,6 +1,6 @@
 /* eslint-disable complexity -- Legacy migration selects one of two documented OpenClaw command surfaces. */
 import { createHash } from "node:crypto";
-import { chmod, cp, lstat, mkdir, readdir, readFile, realpath, writeFile } from "node:fs/promises";
+import { chmod, cp, lstat, readdir, readFile, realpath, writeFile } from "node:fs/promises";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import { parseStructuredOutput } from "../openclaw/capabilities.js";
 import { type CommandOptions, runOpenClaw } from "../openclaw/process.js";
@@ -101,8 +101,6 @@ export async function prepareLegacyMigrationCopy(params: {
   await assertNoSymlinks(source);
   const before = await treeFingerprint(source);
   const destination = join(params.stagingRoot, "legacy-state-copy");
-  await mkdir(destination, { mode: 0o700 });
-  await chmod(destination, 0o700);
   await cp(source, destination, {
     recursive: true,
     force: false,
@@ -110,6 +108,7 @@ export async function prepareLegacyMigrationCopy(params: {
     dereference: false,
     preserveTimestamps: true,
   });
+  await chmod(destination, 0o700);
   await confineCopiedSessionStore(source, destination);
   const commands: LegacyMigrationReceipt["commands"] = [];
   const commandOptions = {
