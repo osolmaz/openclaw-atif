@@ -9,7 +9,12 @@ import { loadOpenClawBundle } from "../openclaw/bundle-v1.js";
 import { parseStructuredOutput } from "../openclaw/capabilities.js";
 import { type CommandOptions, type CommandResult, runOpenClaw } from "../openclaw/process.js";
 import { DEFAULT_PROFILE } from "../version.js";
-import { listingFingerprint, parseSessionListing, selectRoot } from "./listing.js";
+import {
+  type ExportableSessionListingRow,
+  listingFingerprint,
+  parseSessionListing,
+  selectRoot,
+} from "./listing.js";
 import { discoverRelationships } from "./relationships.js";
 
 class CaptureRaceError extends Error {
@@ -64,7 +69,7 @@ async function validateBundleDirectory(stagingRoot: string, value: string): Prom
 
 async function exportNode(
   options: CaptureOptions,
-  row: SessionListingRow,
+  row: ExportableSessionListingRow,
   sequence: number,
 ): Promise<SourceNode> {
   const outputName = `session-${String(sequence).padStart(4, "0")}`;
@@ -108,8 +113,8 @@ function relevantRows(listing: SessionListing, keys: ReadonlySet<string>): Sessi
   return listing.sessions.filter(
     (row) =>
       keys.has(row.key) ||
-      (row.parentSessionKey !== undefined && keys.has(row.parentSessionKey)) ||
-      (row.spawnedBy !== undefined && keys.has(row.spawnedBy)),
+      (typeof row.parentSessionKey === "string" && keys.has(row.parentSessionKey)) ||
+      (typeof row.spawnedBy === "string" && keys.has(row.spawnedBy)),
   );
 }
 
@@ -120,9 +125,11 @@ async function captureAttempt(
   const before = await listSessions(options);
   const root = selectRoot(before, { sessionKey: options.sessionKey, sessionId: options.sessionId });
   const rowByKey = new Map(before.sessions.map((row) => [row.key, row]));
-  const queue: { row: SessionListingRow; depth: number; parent?: RelationshipEvidence }[] = [
-    { row: root, depth: 0 },
-  ];
+  const queue: {
+    row: ExportableSessionListingRow;
+    depth: number;
+    parent?: RelationshipEvidence;
+  }[] = [{ row: root, depth: 0 }];
   const nodes = new Map<string, SourceNode>();
   const relationships: RelationshipEvidence[] = [];
   const parentByChild = new Map<string, string>();
@@ -175,15 +182,20 @@ async function captureAttempt(
       parentByChild.set(relationship.childKey, relationship.parentKey);
       relationships.push(relationship);
       const child = rowByKey.get(relationship.childKey);
-      if (!child) {
+      if (!child || typeof child.sessionId !== "string") {
         diagnostics.push({
           code: "child-session-missing",
-          message: "A structured relationship references a session absent from the public listing",
+          message:
+            "A structured relationship references a session absent from the public listing or without a concrete session ID",
           nodeKey: item.row.key,
         });
         continue;
       }
-      queue.push({ row: child, depth: item.depth + 1, parent: relationship });
+      queue.push({
+        row: child as ExportableSessionListingRow,
+        depth: item.depth + 1,
+        parent: relationship,
+      });
     }
   }
   const after = await listSessions(options);

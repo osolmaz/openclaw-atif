@@ -115,6 +115,19 @@ describe("relationship kinds and structured payloads", () => {
         sessionId: "s",
         data: { message: "bad" },
       }),
+      event({
+        seq: 5,
+        source: "transcript",
+        type: "tool.result",
+        sessionId: "s",
+        data: {
+          message: {
+            toolCallId: "missing-call",
+            toolName: "sessions_spawn",
+            content: { childSessionKey: "agent:main:subagent:phantom" },
+          },
+        },
+      }),
     ];
     expect(extractSpawnEvidence(events)).toEqual([]);
   });

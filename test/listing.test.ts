@@ -29,6 +29,17 @@ describe("session listing", () => {
     expect(() => selectRoot(duplicate, { sessionId: "same" })).toThrow("ambiguous");
   });
 
+  it("accepts unrelated sparse rows but requires a concrete ID for the selected root", () => {
+    const sparse = parseSessionListing({
+      sessions: [
+        { key: "stale", sessionId: null, updatedAt: null },
+        { key: "root", sessionId: "concrete", updatedAt: 1 },
+      ],
+    });
+    expect(selectRoot(sparse, { sessionKey: "root" }).sessionId).toBe("concrete");
+    expect(() => selectRoot(sparse, { sessionKey: "stale" })).toThrow("concrete session ID");
+  });
+
   it("rejects truncated listings", () => {
     expect(() => parseSessionListing({ sessions: [], hasMore: true })).toThrow("incomplete");
   });

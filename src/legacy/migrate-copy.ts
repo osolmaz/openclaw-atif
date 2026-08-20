@@ -1,7 +1,7 @@
 /* eslint-disable complexity -- Legacy migration selects one of two documented OpenClaw command surfaces. */
 import { createHash } from "node:crypto";
-import { chmod, cp, lstat, mkdir, readdir, readFile, realpath } from "node:fs/promises";
-import { join, relative } from "node:path";
+import { chmod, cp, lstat, mkdir, readdir, readFile, realpath, writeFile } from "node:fs/promises";
+import { isAbsolute, join, relative, resolve } from "node:path";
 import { parseStructuredOutput } from "../openclaw/capabilities.js";
 import { type CommandOptions, runOpenClaw } from "../openclaw/process.js";
 import { compareCodeUnits } from "../ordering.js";
@@ -48,6 +48,46 @@ function digest(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }
 
+function isInside(root: string, target: string): boolean {
+  const location = relative(root, target);
+  return location === "" || (!location.startsWith("..") && !isAbsolute(location));
+}
+
+async function confineCopiedSessionStore(source: string, destination: string): Promise<void> {
+  const configPath = join(destination, "openclaw.json");
+  let raw: string;
+  try {
+    raw = await readFile(configPath, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
+    throw error;
+  }
+  let config: Record<string, unknown>;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+      throw new Error("OpenClaw config must be an object");
+    config = parsed as Record<string, unknown>;
+  } catch (error) {
+    throw new Error("Legacy migration cannot safely inspect openclaw.json", { cause: error });
+  }
+  const session = config.session;
+  if (!session || typeof session !== "object" || Array.isArray(session)) return;
+  const sessionConfig = session as Record<string, unknown>;
+  if (sessionConfig.store === undefined) return;
+  if (typeof sessionConfig.store !== "string" || !isAbsolute(sessionConfig.store)) {
+    throw new Error("Legacy session.store must be an absolute path inside the copied state");
+  }
+  const configuredStore = resolve(sessionConfig.store);
+  if (isInside(source, configuredStore)) {
+    sessionConfig.store = join(destination, relative(source, configuredStore));
+  } else if (!isInside(destination, configuredStore)) {
+    throw new Error("Legacy session.store resolves outside the copied state");
+  }
+  await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 });
+  await chmod(configPath, 0o600);
+}
+
 export async function prepareLegacyMigrationCopy(params: {
   sourceStateDir: string;
   stagingRoot: string;
@@ -70,6 +110,7 @@ export async function prepareLegacyMigrationCopy(params: {
     dereference: false,
     preserveTimestamps: true,
   });
+  await confineCopiedSessionStore(source, destination);
   const commands: LegacyMigrationReceipt["commands"] = [];
   const commandOptions = {
     ...params.command,

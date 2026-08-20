@@ -20,6 +20,8 @@ The package does not interpret either storage layout. It invokes the OpenClaw ve
 
 For an older archive without the export command, migration-on-copy uses a caller-selected official migration-capable OpenClaw executable. It uses the documented session SQLite inspect, dry-run, import, and validate sequence when available. Older command surfaces use documented non-interactive repair followed by a public session-list verification.
 
+Before any migration command runs, a configured absolute `session.store` inside the source tree is rewritten to the corresponding copied path. Relative, unparseable, or external store targets are rejected. Migration commands cannot operate on the original store through copied configuration.
+
 ## ATIF and Harbor
 
 The first release emits ATIF-v1.7 only.

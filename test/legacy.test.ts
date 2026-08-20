@@ -13,6 +13,10 @@ describe("legacy migration-on-copy", () => {
     await mkdir(staging);
     const sourceFile = join(source, "agents", "main", "sessions", "sessions.json");
     await writeFile(sourceFile, '{"agent:main:main":{"sessionId":"legacy"}}\n');
+    await writeFile(
+      join(source, "openclaw.json"),
+      JSON.stringify({ session: { store: join(source, "agents", "{agentId}", "sessions.json") } }),
+    );
     const executable = join(root, "openclaw.mjs");
     await writeFile(
       executable,
@@ -35,6 +39,12 @@ describe("legacy migration-on-copy", () => {
     expect(
       await readFile(join(result.stateDir, "agents", "main", "sessions", "sessions.json"), "utf8"),
     ).toContain("legacy");
+    const copiedConfig = JSON.parse(
+      await readFile(join(result.stateDir, "openclaw.json"), "utf8"),
+    ) as { session: { store: string } };
+    expect(copiedConfig.session.store).toBe(
+      join(result.stateDir, "agents", "{agentId}", "sessions.json"),
+    );
   });
 
   it("falls back to non-interactive repair when targeted migration is unavailable", async () => {
@@ -59,6 +69,25 @@ describe("legacy migration-on-copy", () => {
       "fix",
       "sessions-list-verify",
     ]);
+  });
+
+  it("rejects a configured session store outside the copied state before migration", async () => {
+    const root = await mkdtemp(join(tmpdir(), "openclaw-atif-legacy-"));
+    const source = join(root, "source");
+    const staging = join(root, "staging");
+    await mkdir(source);
+    await mkdir(staging);
+    await writeFile(
+      join(source, "openclaw.json"),
+      JSON.stringify({ session: { store: join(root, "original-sessions.json") } }),
+    );
+    await expect(
+      prepareLegacyMigrationCopy({
+        sourceStateDir: source,
+        stagingRoot: staging,
+        executable: process.execPath,
+      }),
+    ).rejects.toThrow("outside the copied state");
   });
 
   it("rejects source trees with symlinks", async () => {

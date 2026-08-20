@@ -36,7 +36,7 @@ Receipts hash stable source files directly. OpenClaw regenerates top-level `gene
 ## Completeness states
 
 - `complete`: the family was stable and all required facts and references were exported and validated.
-- `partial`: valid output exists, but one or more source facts, descendants, references, leaves, generations, or runtime events were unavailable. Capture retries transient session-generation and disappearing-child races before it emits this state.
+- `partial`: valid output exists, but one or more source facts, descendants, references, leaves, generations, or runtime events were unavailable. Explicit OpenClaw truncation or dropped-field markers also cause this state. Capture retries transient session-generation and disappearing-child races before it emits this state.
 - `failed`: no final output was committed.
 
 Schema validity does not imply completeness.
