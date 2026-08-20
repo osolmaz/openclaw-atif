@@ -2,6 +2,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { access, chmod, lstat, mkdir, open, readdir, readFile, rename, rm } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
+import { compareCodeUnits } from "./ordering.js";
 
 export class OutputConflictError extends Error {
   constructor(readonly path: string) {
@@ -287,7 +288,9 @@ export async function writeAtomicDirectory(
   let transaction: DirectoryTransaction | undefined;
   await mkdir(stage, { mode: 0o700 });
   try {
-    for (const [name, content] of [...files].sort(([left], [right]) => left.localeCompare(right))) {
+    for (const [name, content] of [...files].sort(([left], [right]) =>
+      compareCodeUnits(left, right),
+    )) {
       await writeFreshFile(join(stage, name), content);
     }
     await syncDirectory(stage);

@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { type Diagnostic, deduplicateDiagnostics } from "../diagnostics.js";
 import type { OpenClawBundleV1 } from "../models/bundle-v1.js";
 import type { CapturedFamily, NormalizedNode, SessionFamilySnapshot } from "../models/family.js";
+import { compareCodeUnits } from "../ordering.js";
 import { stableCompactStringify } from "../stable-json.js";
 
 const KNOWN_TRANSCRIPT_EVENTS = new Set([
@@ -109,7 +110,7 @@ export function normalizeFamily(captured: CapturedFamily): SessionFamilySnapshot
       }
     }
     const childRelationships = [...(relationshipsByParent.get(key) ?? [])].sort((left, right) =>
-      left.childKey.localeCompare(right.childKey),
+      compareCodeUnits(left.childKey, right.childKey),
     );
     for (const relationship of childRelationships) {
       if (!["native-subagent", "acp-child"].includes(relationship.kind)) {
@@ -158,7 +159,8 @@ export function normalizeFamily(captured: CapturedFamily): SessionFamilySnapshot
     profile: captured.profile,
     nodes,
     relationships: [...captured.relationships].sort((left, right) =>
-      `${left.parentKey}\u0000${left.childKey}`.localeCompare(
+      compareCodeUnits(
+        `${left.parentKey}\u0000${left.childKey}`,
         `${right.parentKey}\u0000${right.childKey}`,
       ),
     ),

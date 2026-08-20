@@ -4,6 +4,7 @@ import { chmod, cp, lstat, mkdir, readdir, readFile, realpath } from "node:fs/pr
 import { join, relative } from "node:path";
 import { parseStructuredOutput } from "../openclaw/capabilities.js";
 import { type CommandOptions, runOpenClaw } from "../openclaw/process.js";
+import { compareCodeUnits } from "../ordering.js";
 
 export interface LegacyMigrationReceipt {
   sourceFingerprintBefore: string;
@@ -25,7 +26,7 @@ async function treeFingerprint(root: string): Promise<string> {
   const hash = createHash("sha256");
   async function visit(current: string): Promise<void> {
     const entries = (await readdir(current, { withFileTypes: true })).sort((left, right) =>
-      left.name.localeCompare(right.name),
+      compareCodeUnits(left.name, right.name),
     );
     for (const entry of entries) {
       const path = join(current, entry.name);
