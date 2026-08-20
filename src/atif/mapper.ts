@@ -55,14 +55,42 @@ function contentParts(
   const parts: AtifContentPart[] = [];
   for (const block of value) {
     const item = asRecord(block);
-    if (!item) continue;
-    const type = readString(item.type)?.toLowerCase();
-    if (type === "text" && typeof item.text === "string")
-      parts.push({ type: "text", text: item.text });
+    const type = readString(item?.type)?.toLowerCase();
+    if (!item || !type) {
+      diagnostics.push({
+        code: "content-block-unsupported",
+        message: "A content block without a supported type was omitted",
+        nodeKey,
+        eventId,
+      });
+      continue;
+    }
+    if (type === "text") {
+      if (typeof item.text === "string") parts.push({ type: "text", text: item.text });
+      else
+        diagnostics.push({
+          code: "content-block-unsupported",
+          message: "A text content block without text was omitted",
+          nodeKey,
+          eventId,
+        });
+    }
     if (type === "image") {
       diagnostics.push({
         code: "image-content-omitted",
         message: "The image was omitted because the export does not copy source assets",
+        nodeKey,
+        eventId,
+      });
+    }
+    if (
+      type !== "text" &&
+      type !== "image" &&
+      !["reasoning", "thinking", "analysis", "toolcall", "tool_call"].includes(type)
+    ) {
+      diagnostics.push({
+        code: "content-block-unsupported",
+        message: `The ${type} content block was omitted`,
         nodeKey,
         eventId,
       });

@@ -190,6 +190,7 @@ describe("ATIF mapper edge cases", () => {
               { type: "text", text: "look" },
               { type: "image", source: { path: "image.png", media_type: "image/png" } },
               { type: "image", data: "redacted" },
+              { type: "audio", source: { path: "audio.wav" } },
             ],
           },
         },
@@ -200,6 +201,7 @@ describe("ATIF mapper edge cases", () => {
     expect(result.diagnostics.filter((item) => item.code === "image-content-omitted")).toHaveLength(
       2,
     );
+    expect(result.diagnostics.some((item) => item.code === "content-block-unsupported")).toBe(true);
   });
 
   it("preserves malformed tool arguments as metadata and detects reused call IDs", () => {

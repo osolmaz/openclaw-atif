@@ -48,6 +48,28 @@ describe("bundle graph", () => {
     }
   });
 
+  it("accepts a bundle located directly at the declared bundle root", async () => {
+    const root = await mkdtemp(join(tmpdir(), "openclaw-atif-graph-"));
+    const bundle = await writeBundle({
+      root,
+      name: "bundle",
+      sessionId: "session",
+      sessionKey: "root",
+      events: childEvents("session"),
+    });
+    const graphPath = join(bundle, "graph.json");
+    await writeFile(
+      graphPath,
+      JSON.stringify({
+        schema: "openclaw-atif-bundle-graph-v1",
+        rootKey: "root",
+        openclawVersion: "test",
+        nodes: [{ sessionKey: "root", bundleDir: "." }],
+      }),
+    );
+    expect((await loadCapturedFamilyFromGraph(graphPath, bundle)).nodes.size).toBe(1);
+  });
+
   it("derives exact spawn evidence and rejects caller-supplied evidence that is not proven", async () => {
     const root = await mkdtemp(join(tmpdir(), "openclaw-atif-graph-"));
     await writeBundle({

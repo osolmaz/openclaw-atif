@@ -68,7 +68,7 @@ async function resolveBundle(root: string, relativePath: string): Promise<string
   const realRoot = await realpath(root);
   const candidate = await realpath(join(realRoot, relativePath));
   const location = relative(realRoot, candidate);
-  if (!location || location.startsWith("..") || isAbsolute(location))
+  if (location.startsWith("..") || isAbsolute(location))
     throw new Error("Bundle graph path escaped bundle root");
   return candidate;
 }
