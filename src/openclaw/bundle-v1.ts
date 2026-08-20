@@ -137,6 +137,21 @@ export async function loadOpenClawBundle(
     )
       throw new Error(`Bundle event sessionKey mismatch at row ${String(index + 1)}`);
   }
+  const sessionBranch = parseJsonObject(
+    requiredContent(contents, "session-branch.json"),
+    "session-branch.json",
+  );
+  const branchHeader = asRecord(sessionBranch.header);
+  const branchSessionId =
+    typeof branchHeader?.id === "string"
+      ? branchHeader.id
+      : typeof branchHeader?.sessionId === "string"
+        ? branchHeader.sessionId
+        : undefined;
+  if (branchSessionId && branchSessionId !== manifest.sessionId)
+    throw new Error("Bundle session-branch session identity does not match manifest");
+  if ((sessionBranch.leafId ?? null) !== manifest.leafId)
+    throw new Error("Bundle session-branch leaf identity does not match manifest");
   const supplemental = new Map<string, unknown>();
   for (const [name, content] of contents) {
     if (REQUIRED_FILES.includes(name as (typeof REQUIRED_FILES)[number])) continue;
@@ -152,10 +167,7 @@ export async function loadOpenClawBundle(
       ? { observedSessionKey: manifest.sessionKey ?? eventSessionKey }
       : {}),
     events,
-    sessionBranch: parseJsonObject(
-      requiredContent(contents, "session-branch.json"),
-      "session-branch.json",
-    ),
+    sessionBranch,
     supplemental,
     sourceHashes: Object.fromEntries(
       [...contents].map(([name, content]) => [name, sha256(content)]),

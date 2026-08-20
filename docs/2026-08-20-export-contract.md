@@ -49,4 +49,4 @@ The default profile is `openclaw-support-v1`. Additional profiles must be determ
 
 ## Writes
 
-Directories use mode `0700` and files use mode `0600`. Output is validated before commit. Atomic writes occur in the destination filesystem. Recovery only touches package-owned transactions whose identity and expected hashes verify.
+Directories use mode `0700` and files use mode `0600`. Output is validated before commit. Atomic writes occur in the destination filesystem. Recovery only touches package-owned transactions whose identity and expected hashes verify. If export and sensitive-staging cleanup both fail, the returned error reports both failures.

@@ -104,6 +104,23 @@ describe("loadOpenClawBundle", () => {
     await expect(loadOpenClawBundle(keyMismatch)).rejects.toThrow("sessionKey mismatch");
   });
 
+  it("rejects session-branch identities that contradict the manifest", async () => {
+    const root = await mkdtemp(join(tmpdir(), "openclaw-atif-bundle-"));
+    const sessionMismatch = await standardBundle(root, "session-mismatch");
+    await writeFile(
+      join(sessionMismatch, "session-branch.json"),
+      JSON.stringify({ header: { id: "other-session" }, leafId: "leaf-1", entries: [] }),
+    );
+    await expect(loadOpenClawBundle(sessionMismatch)).rejects.toThrow("session identity");
+
+    const leafMismatch = await standardBundle(root, "leaf-mismatch");
+    await writeFile(
+      join(leafMismatch, "session-branch.json"),
+      JSON.stringify({ header: { id: "session" }, leafId: "other-leaf", entries: [] }),
+    );
+    await expect(loadOpenClawBundle(leafMismatch)).rejects.toThrow("leaf identity");
+  });
+
   it("rejects malformed rows and file limits", async () => {
     const root = await mkdtemp(join(tmpdir(), "openclaw-atif-bundle-"));
     const directory = await standardBundle(root);

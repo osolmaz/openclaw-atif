@@ -21,6 +21,21 @@ function errorFromUnknown(value: unknown): Error {
     : new Error(typeof value === "string" ? value : "Unknown export error");
 }
 
+export function combineExportErrors(primary: unknown, cleanup: unknown): Error | undefined {
+  if (primary && cleanup) {
+    const primaryError = errorFromUnknown(primary);
+    const cleanupError = errorFromUnknown(cleanup);
+    return new AggregateError(
+      [primaryError, cleanupError],
+      `Export failed: ${primaryError.message}; sensitive staging cleanup also failed: ${cleanupError.message}`,
+    );
+  }
+  if (primary) return errorFromUnknown(primary);
+  if (cleanup)
+    return new Error(`Sensitive staging cleanup failed: ${errorFromUnknown(cleanup).message}`);
+  return undefined;
+}
+
 export interface ExportResult {
   status: "complete" | "partial";
   trajectory: AtifTrajectory;
@@ -159,10 +174,8 @@ export async function exportOpenClawFamily(options: ExportOptions): Promise<Expo
       cleanupError ??= error;
     }
   }
-  if (primaryError) throw errorFromUnknown(primaryError);
-  if (cleanupError) {
-    throw new Error(`Sensitive staging cleanup failed: ${errorFromUnknown(cleanupError).message}`);
-  }
+  const finalError = combineExportErrors(primaryError, cleanupError);
+  if (finalError) throw finalError;
   if (!result) throw new Error("OpenClaw export did not produce a result");
   return result;
 }

@@ -2,7 +2,7 @@ import { mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { convertOpenClawBundles } from "../src/exporter.js";
+import { combineExportErrors, convertOpenClawBundles } from "../src/exporter.js";
 import { childEvents, rootEvents, writeBundle } from "./helpers.js";
 
 async function fixture(listingOnly = false) {
@@ -46,6 +46,13 @@ async function fixture(listingOnly = false) {
 }
 
 describe("convertOpenClawBundles", () => {
+  it("reports sensitive cleanup failures together with the primary export failure", () => {
+    const error = combineExportErrors(new Error("capture failed"), new Error("cleanup failed"));
+    expect(error).toBeInstanceOf(AggregateError);
+    expect(error?.message).toContain("capture failed");
+    expect(error?.message).toContain("cleanup failed");
+    expect((error as AggregateError).errors).toHaveLength(2);
+  });
   it("writes a complete owner-only atomic export", async () => {
     const value = await fixture();
     const result = await convertOpenClawBundles({
