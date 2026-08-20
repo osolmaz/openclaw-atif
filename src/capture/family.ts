@@ -87,6 +87,8 @@ async function exportNode(
   const bundle = await loadOpenClawBundle(directory);
   if (bundle.manifest.sessionId !== row.sessionId)
     throw new Error(`Bundle sessionId does not match listing for ${row.key}`);
+  if (bundle.manifest.sessionKey && bundle.manifest.sessionKey !== row.key)
+    throw new Error(`Bundle sessionKey does not match listing for ${row.key}`);
   return { key: row.key, sessionId: row.sessionId, row, bundle };
 }
 

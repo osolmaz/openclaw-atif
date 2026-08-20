@@ -15,6 +15,8 @@ export interface SpawnEvidence {
   toolCallId: string;
   childSessionKey: string;
   eventId?: string;
+  runtime?: string;
+  visible?: boolean;
 }
 
 export interface RelationshipEvidence {

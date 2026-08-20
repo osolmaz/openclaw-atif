@@ -1,4 +1,4 @@
-import { chmod, mkdtemp, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -39,7 +39,7 @@ async function fakeOpenClaw() {
   await writeFile(
     script,
     `#!/usr/bin/env node
-import { cp, mkdir } from "node:fs/promises";
+import { cp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 const args = process.argv.slice(2);
 if (args[0] === "--version") { console.log("2026.8.1-test"); process.exit(0); }
@@ -54,6 +54,10 @@ if (args[0] === "sessions" && args[1] === "export-trajectory") {
   const destination = join(workspace, ".openclaw", "trajectory-exports", output);
   await mkdir(join(workspace, ".openclaw", "trajectory-exports"), { recursive: true });
   await cp(join(process.env.BUNDLE_ROOT, key.includes(":subagent:") ? "child" : "root"), destination, { recursive: true });
+  const manifestPath = join(destination, "manifest.json");
+  const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+  manifest.generatedAt = new Date().toISOString();
+  await writeFile(manifestPath, JSON.stringify(manifest));
   console.log(JSON.stringify({ outputDir: destination, sessionId: key.includes(":subagent:") ? "child-session" : "root-session", files: ["manifest.json", "events.jsonl", "session-branch.json"] }));
   process.exit(0);
 }
@@ -93,6 +97,32 @@ describe("captureOpenClawFamily", () => {
     expect(result.status).toBe("complete");
     expect(result.receipt.source.openclawVersion).toBe("2026.8.1-test");
     expect(result.receipt.source.openclawExecutableSha256).toMatch(/^[a-f0-9]{64}$/u);
+    const repeated = await exportOpenClawFamily({
+      executable: fake.script,
+      sessionKey: "agent:main:main",
+      output,
+      command: { env: { ...process.env, BUNDLE_ROOT: fake.bundles } },
+    });
+    expect(repeated.writes.every((write) => write.idempotent)).toBe(true);
+  });
+
+  it("rejects a public bundle whose session key contradicts the selected listing row", async () => {
+    const fake = await fakeOpenClaw();
+    const manifestPath = join(fake.bundles, "child", "manifest.json");
+    const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as Record<string, unknown>;
+    manifest.sessionKey = "agent:main:subagent:other";
+    await writeFile(manifestPath, JSON.stringify(manifest));
+    const staging = join(fake.root, "staging-key-mismatch");
+    await (await import("node:fs/promises")).mkdir(staging, { mode: 0o700 });
+    await expect(
+      captureOpenClawFamily({
+        executable: fake.script,
+        openclawVersion: "2026.8.1-test",
+        stagingRoot: staging,
+        sessionKey: "agent:main:main",
+        command: { env: { ...process.env, BUNDLE_ROOT: fake.bundles } },
+      }),
+    ).rejects.toThrow("sessionKey does not match");
   });
 
   it("uses explicit migration-on-copy when the source executable lacks export", async () => {

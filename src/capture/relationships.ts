@@ -48,12 +48,22 @@ function toolResultPayload(message: Record<string, unknown>): unknown[] {
 }
 
 export function extractSpawnEvidence(events: readonly TrajectoryEvent[]): SpawnEvidence[] {
-  const callNames = new Map<string, string>();
+  const calls = new Map<string, { name: string; runtime?: string; visible?: boolean }>();
   for (const event of events) {
     if (event.type === "tool.call") {
       const id = readNonBlankString(event.data?.toolCallId);
       const name = readNonBlankString(event.data?.name);
-      if (id && name) callNames.set(id, name);
+      const argumentsRecord = asRecord(parseExactJsonText(event.data?.arguments));
+      if (id && name) {
+        const runtime = readNonBlankString(argumentsRecord?.runtime);
+        const visible =
+          typeof argumentsRecord?.visible === "boolean" ? argumentsRecord.visible : undefined;
+        calls.set(id, {
+          name,
+          ...(runtime ? { runtime } : {}),
+          ...(visible !== undefined ? { visible } : {}),
+        });
+      }
     }
   }
   const evidence: SpawnEvidence[] = [];
@@ -64,13 +74,20 @@ export function extractSpawnEvidence(events: readonly TrajectoryEvent[]): SpawnE
     const callId =
       readNonBlankString(message.toolCallId) ?? readNonBlankString(message.tool_call_id);
     if (!callId) continue;
-    const toolName = readNonBlankString(message.toolName) ?? callNames.get(callId);
+    const call = calls.get(callId);
+    const toolName = readNonBlankString(message.toolName) ?? call?.name;
     if (toolName !== "sessions_spawn") continue;
     const children = new Set<string>();
     for (const payload of toolResultPayload(message))
       collectStructuredChildKeys(payload, undefined, children);
     for (const childSessionKey of children) {
-      evidence.push({ toolCallId: callId, childSessionKey, eventId: event.entryId });
+      evidence.push({
+        toolCallId: callId,
+        childSessionKey,
+        eventId: event.entryId,
+        ...(call?.runtime ? { runtime: call.runtime } : {}),
+        ...(call?.visible !== undefined ? { visible: call.visible } : {}),
+      });
     }
   }
   return [
@@ -96,9 +113,10 @@ export function isAcpListingRow(row: SessionListingRow): boolean {
 
 export function classifyRelationship(
   row: SessionListingRow,
-  hasSpawnEvidence = false,
+  evidence: { spawn?: SpawnEvidence; listing?: boolean } = {},
 ): RelationshipKind {
   const kind = (row.kind ?? row.sessionKind ?? "").toLowerCase();
+  if (evidence.spawn?.visible === true || kind.includes("visible")) return "visible-child";
   if (
     row.forkedFromParent === true ||
     (row.forkSource !== undefined && row.forkSource !== null) ||
@@ -106,11 +124,15 @@ export function classifyRelationship(
     kind.includes("fork")
   )
     return "fork";
-  if (isAcpListingRow(row)) return "acp-child";
-  if (kind.includes("subagent") || hasSpawnEvidence) return "native-subagent";
-  if (kind.includes("visible")) return "visible-child";
+  if (evidence.spawn?.runtime === "acp" || isAcpListingRow(row)) return "acp-child";
   if (kind.includes("cron")) return "cron";
   if (kind.includes("adopt")) return "adopted";
+  if (
+    kind.includes("subagent") ||
+    (kind.includes("spawn") && evidence.listing === true) ||
+    evidence.spawn !== undefined
+  )
+    return "native-subagent";
   return "unknown-child";
 }
 
@@ -131,14 +153,16 @@ export function discoverRelationships(params: {
   const rowByKey = new Map(params.rows.map((row) => [row.key, row]));
   return [...candidateKeys].sort().map((childKey) => {
     const row = rowByKey.get(childKey);
+    const listing =
+      row !== undefined &&
+      (row.parentSessionKey === params.parent.key || row.spawnedBy === params.parent.key);
+    const spawn = spawnByChild.get(childKey);
     return {
       parentKey: params.parent.key,
       childKey,
-      kind: row ? classifyRelationship(row, spawnByChild.has(childKey)) : "unknown-child",
-      listing:
-        row !== undefined &&
-        (row.parentSessionKey === params.parent.key || row.spawnedBy === params.parent.key),
-      spawn: spawnByChild.get(childKey),
+      kind: row ? classifyRelationship(row, { spawn, listing }) : "unknown-child",
+      listing,
+      spawn,
     } satisfies RelationshipEvidence;
   });
 }

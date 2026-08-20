@@ -121,14 +121,25 @@ describe("ATIF mapper edge cases", () => {
         sessionId: "session",
         data: { name: "name" },
       }),
+      event({
+        seq: 12,
+        source: "transcript",
+        type: "assistant.message",
+        sessionId: "session",
+        entryId: "assistant-after-settings",
+        data: { message: { content: "uses changed settings" } },
+      }),
     ];
     const result = mapFamilyToAtif(
       family(events, { model: "fallback", modelProvider: "provider" }),
     );
-    expect(result.trajectory.steps.map((step) => step.extra?.openclaw)).toHaveLength(10);
+    expect(result.trajectory.steps.map((step) => step.extra?.openclaw)).toHaveLength(11);
     expect(result.trajectory.steps[0]?.message).toBe("system");
     expect(result.trajectory.agent.model_name).toBe("provider/fallback");
     expect(result.trajectory.agent.tool_definitions).toEqual([{ name: "tool" }]);
+    const assistant = result.trajectory.steps.at(-1);
+    expect(assistant?.model_name).toBe("p/m");
+    expect(assistant?.reasoning_effort).toBe("high");
   });
 
   it("preserves valid images and warns about pathless images", () => {

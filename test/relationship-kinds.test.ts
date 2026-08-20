@@ -19,10 +19,29 @@ describe("relationship kinds and structured payloads", () => {
     expect(classifyRelationship(row)).toBe(kind);
   });
 
-  it("classifies an exact spawn relationship as a native subagent without key heuristics", () => {
-    expect(classifyRelationship({ key: "opaque-child", sessionId: "x" }, true)).toBe(
+  it("classifies spawn children from observed mode and listing lineage", () => {
+    const spawn = { toolCallId: "call", childSessionKey: "opaque-child" };
+    expect(classifyRelationship({ key: "opaque-child", sessionId: "x" }, { spawn })).toBe(
       "native-subagent",
     );
+    expect(
+      classifyRelationship(
+        { key: "visible-child", sessionId: "x" },
+        { spawn: { ...spawn, visible: true } },
+      ),
+    ).toBe("visible-child");
+    expect(
+      classifyRelationship(
+        { key: "acp-child", sessionId: "x" },
+        { spawn: { ...spawn, runtime: "acp" } },
+      ),
+    ).toBe("acp-child");
+    expect(
+      classifyRelationship(
+        { key: "opaque-child", sessionId: "x", kind: "spawn-child" },
+        { listing: true },
+      ),
+    ).toBe("native-subagent");
   });
 
   it("reads known child fields from details, arrays, and exact text JSON", () => {
@@ -32,7 +51,11 @@ describe("relationship kinds and structured payloads", () => {
         source: "transcript",
         type: "tool.call",
         sessionId: "s",
-        data: { toolCallId: "call", name: "sessions_spawn" },
+        data: {
+          toolCallId: "call",
+          name: "sessions_spawn",
+          arguments: { visible: true, runtime: "subagent" },
+        },
       }),
       event({
         seq: 2,
@@ -52,10 +75,14 @@ describe("relationship kinds and structured payloads", () => {
         },
       }),
     ];
-    expect(extractSpawnEvidence(events).map((item) => item.childSessionKey)).toEqual([
+    const evidence = extractSpawnEvidence(events);
+    expect(evidence.map((item) => item.childSessionKey)).toEqual([
       "agent:main:acp:two",
       "agent:main:subagent:one",
     ]);
+    expect(evidence.every((item) => item.visible === true && item.runtime === "subagent")).toBe(
+      true,
+    );
   });
 
   it("ignores unrelated tools, missing call IDs, and malformed exact JSON", () => {
