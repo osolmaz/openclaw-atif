@@ -47,6 +47,20 @@ describe("ATIF schema", () => {
     expect(() => validateAtifTrajectory(value)).toThrow("Observation");
   });
 
+  it("rejects content parts with missing or contradictory fields", () => {
+    for (const part of [
+      { type: "text" },
+      { type: "image" },
+      { type: "text", text: "text", source: { media_type: "image/png", path: "image.png" } },
+      { type: "image", text: "text", source: { media_type: "image/png", path: "image.png" } },
+    ]) {
+      const value = trajectory() as unknown as Record<string, unknown>;
+      const steps = value.steps as Record<string, unknown>[];
+      if (steps[0]) steps[0].message = [part];
+      expect(() => validateAtifTrajectory(value)).toThrow();
+    }
+  });
+
   it("rejects embedded children without trajectory IDs", () => {
     const value = trajectory();
     if (value.subagent_trajectories?.[0]) delete value.subagent_trajectories[0].trajectory_id;

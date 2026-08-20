@@ -5,11 +5,15 @@ import { ATIF_VERSION } from "../version.js";
 
 export type { JsonObject, JsonValue };
 
-export interface AtifContentPart {
-  type: "text" | "image";
-  text?: string;
-  source?: { media_type: "image/jpeg" | "image/png" | "image/gif" | "image/webp"; path: string };
-}
+export type AtifContentPart =
+  | { type: "text"; text: string }
+  | {
+      type: "image";
+      source: {
+        media_type: "image/jpeg" | "image/png" | "image/gif" | "image/webp";
+        path: string;
+      };
+    };
 
 export interface AtifSubagentRef {
   trajectory_id?: string;
@@ -97,19 +101,20 @@ const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
   ]),
 );
 const jsonObjectSchema = z.record(z.string(), jsonValueSchema);
-const contentPartSchema = z
-  .object({
-    type: z.enum(["text", "image"]),
-    text: z.string().optional(),
-    source: z
-      .object({
-        media_type: z.enum(["image/jpeg", "image/png", "image/gif", "image/webp"]),
-        path: z.string(),
-      })
-      .strict()
-      .optional(),
-  })
-  .strict();
+const contentPartSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("text"), text: z.string() }).strict(),
+  z
+    .object({
+      type: z.literal("image"),
+      source: z
+        .object({
+          media_type: z.enum(["image/jpeg", "image/png", "image/gif", "image/webp"]),
+          path: z.string().min(1),
+        })
+        .strict(),
+    })
+    .strict(),
+]);
 const subagentRefSchema = z
   .object({
     trajectory_id: z.string().min(1).optional(),

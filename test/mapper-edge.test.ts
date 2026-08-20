@@ -137,13 +137,15 @@ describe("ATIF mapper edge cases", () => {
     expect(result.trajectory.steps.map((step) => step.extra?.openclaw)).toHaveLength(11);
     expect(result.trajectory.steps[0]?.message).toBe("system");
     expect(result.trajectory.agent.model_name).toBe("provider/fallback");
-    expect(result.trajectory.agent.tool_definitions).toEqual([{ name: "tool" }]);
+    expect(result.trajectory.agent.tool_definitions).toEqual([
+      { type: "function", function: { name: "tool", parameters: {} } },
+    ]);
     const assistant = result.trajectory.steps.at(-1);
     expect(assistant?.model_name).toBe("p/m");
     expect(assistant?.reasoning_effort).toBe("high");
   });
 
-  it("preserves valid images and warns about pathless images", () => {
+  it("omits image references that would be invalid outside the source bundle", () => {
     const events = [
       event({
         seq: 1,
@@ -163,8 +165,10 @@ describe("ATIF mapper edge cases", () => {
       }),
     ];
     const result = mapFamilyToAtif(family(events));
-    expect(Array.isArray(result.trajectory.steps[0]?.message)).toBe(true);
-    expect(result.diagnostics.some((item) => item.code === "image-content-omitted")).toBe(true);
+    expect(result.trajectory.steps[0]?.message).toBe("look");
+    expect(result.diagnostics.filter((item) => item.code === "image-content-omitted")).toHaveLength(
+      2,
+    );
   });
 
   it("preserves malformed tool arguments as metadata and detects reused call IDs", () => {

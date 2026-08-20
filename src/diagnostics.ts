@@ -1,3 +1,5 @@
+import { compareCodeUnits } from "./ordering.js";
+
 export type CompletenessStatus = "complete" | "partial";
 
 export interface Diagnostic {
@@ -22,10 +24,9 @@ export function deduplicateDiagnostics(values: readonly Diagnostic[]): Diagnosti
     }
   }
   return [...entries.values()].sort((left, right) =>
-    [left.code, left.nodeKey ?? "", left.eventId ?? "", left.message]
-      .join("\u0000")
-      .localeCompare(
-        [right.code, right.nodeKey ?? "", right.eventId ?? "", right.message].join("\u0000"),
-      ),
+    compareCodeUnits(
+      [left.code, left.nodeKey ?? "", left.eventId ?? "", left.message].join("\u0000"),
+      [right.code, right.nodeKey ?? "", right.eventId ?? "", right.message].join("\u0000"),
+    ),
   );
 }

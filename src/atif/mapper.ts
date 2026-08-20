@@ -15,6 +15,7 @@ import type {
   RelationshipEvidence,
   SessionFamilySnapshot,
 } from "../models/family.js";
+import { compareCodeUnits } from "../ordering.js";
 import { ATIF_VERSION } from "../version.js";
 import { trajectoryId } from "./identity.js";
 import {
@@ -58,33 +59,16 @@ function contentParts(
     if (type === "text" && typeof item.text === "string")
       parts.push({ type: "text", text: item.text });
     if (type === "image") {
-      const source = asRecord(item.source);
-      const path = readNonBlankString(source?.path) ?? readNonBlankString(item.path);
-      const mediaType = readString(source?.media_type ?? source?.mediaType ?? item.mediaType);
-      if (
-        path &&
-        ["image/jpeg", "image/png", "image/gif", "image/webp"].includes(mediaType ?? "")
-      ) {
-        parts.push({
-          type: "image",
-          source: {
-            media_type: mediaType as "image/jpeg" | "image/png" | "image/gif" | "image/webp",
-            path,
-          },
-        });
-      } else {
-        diagnostics.push({
-          code: "image-content-omitted",
-          message: "An image without an ATIF path was omitted",
-          nodeKey,
-          eventId,
-        });
-      }
+      diagnostics.push({
+        code: "image-content-omitted",
+        message: "The image was omitted because the export does not copy source assets",
+        nodeKey,
+        eventId,
+      });
     }
   }
   if (parts.length === 0) return "";
-  if (parts.every((part) => part.type === "text"))
-    return parts.map((part) => part.text ?? "").join("");
+  if (parts.every((part) => part.type === "text")) return parts.map((part) => part.text).join("");
   return parts;
 }
 
@@ -359,6 +343,26 @@ function shouldMapSystemEvent(type: string): boolean {
   ].includes(type);
 }
 
+function atifToolDefinition(value: unknown): JsonObject | undefined {
+  const tool = asRecord(value);
+  if (!tool) return undefined;
+  const existingFunction = asRecord(tool.function);
+  if (tool.type === "function" && readNonBlankString(existingFunction?.name))
+    return toJsonObject(tool);
+  const name = readNonBlankString(tool.name);
+  if (!name) return undefined;
+  const description = readString(tool.description);
+  const parameters = toJsonObject(tool.parameters) ?? {};
+  return {
+    type: "function",
+    function: {
+      name,
+      ...(description !== undefined ? { description } : {}),
+      parameters,
+    },
+  };
+}
+
 function agentForNode(node: NormalizedNode, version: string): AtifAgent {
   const metadata = node.runtimeEvents.findLast((event) => event.type === "trace.metadata");
   const modelInfo = asRecord(metadata?.data?.model);
@@ -368,7 +372,9 @@ function agentForNode(node: NormalizedNode, version: string): AtifAgent {
     readNonBlankString(modelInfo?.provider) ?? readNonBlankString(node.row.modelProvider);
   const context = node.runtimeEvents.findLast((event) => event.type === "context.compiled");
   const tools = Array.isArray(context?.data?.tools)
-    ? context.data.tools.map(toJsonObject).filter((item): item is JsonObject => item !== undefined)
+    ? context.data.tools
+        .map(atifToolDefinition)
+        .filter((item): item is JsonObject => item !== undefined)
     : undefined;
   return {
     name: "openclaw",
@@ -458,7 +464,7 @@ function buildNode(params: {
       (pair): pair is { relationship: RelationshipEvidence; child: NormalizedNode } =>
         pair.child !== undefined,
     )
-    .sort((left, right) => left.child.key.localeCompare(right.child.key));
+    .sort((left, right) => compareCodeUnits(left.child.key, right.child.key));
   const children = childPairs.map(({ child }) =>
     buildNode({
       family: params.family,

@@ -66,6 +66,29 @@ describe("relationship discovery", () => {
     expect(relationships[0]?.kind).toBe("acp-child");
   });
 
+  it("does not create lineage from a failed structured spawn result", () => {
+    const events = rootEvents("root", "agent:main:subagent:failed").map((item) =>
+      item.type === "tool.result"
+        ? {
+            ...item,
+            data: {
+              ...item.data,
+              message: {
+                toolCallId: "call-1",
+                toolName: "sessions_spawn",
+                content: JSON.stringify({
+                  status: "error",
+                  error: "dispatch failed",
+                  childSessionKey: "agent:main:subagent:failed",
+                }),
+              },
+            },
+          }
+        : item,
+    );
+    expect(extractSpawnEvidence(events)).toEqual([]);
+  });
+
   it("does not accept session-looking free-form prose", () => {
     const events = [
       event({

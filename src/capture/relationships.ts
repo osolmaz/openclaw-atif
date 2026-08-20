@@ -2,6 +2,7 @@
 import { asRecord, readNonBlankString } from "../json.js";
 import type { SessionListingRow, TrajectoryEvent } from "../models/bundle-v1.js";
 import type { RelationshipEvidence, RelationshipKind, SpawnEvidence } from "../models/family.js";
+import { compareCodeUnits } from "../ordering.js";
 
 const CHILD_FIELD_NAMES = new Set(["childSessionKey", "sessionKey"]);
 
@@ -47,6 +48,27 @@ function toolResultPayload(message: Record<string, unknown>): unknown[] {
   return values;
 }
 
+function hasFailureMarker(value: unknown): boolean {
+  if (Array.isArray(value)) return value.some(hasFailureMarker);
+  const record = asRecord(value);
+  if (!record) return false;
+  const status = readNonBlankString(record.status)?.toLowerCase();
+  if (
+    status &&
+    ["error", "failed", "failure", "rejected", "cancelled", "aborted", "timeout"].includes(status)
+  )
+    return true;
+  if (record.ok === false || record.success === false || record.isError === true) return true;
+  if (
+    record.error !== undefined &&
+    record.error !== null &&
+    record.error !== false &&
+    record.error !== ""
+  )
+    return true;
+  return Object.values(record).some(hasFailureMarker);
+}
+
 export function extractSpawnEvidence(events: readonly TrajectoryEvent[]): SpawnEvidence[] {
   const calls = new Map<string, { name: string; runtime?: string; visible?: boolean }>();
   for (const event of events) {
@@ -77,9 +99,10 @@ export function extractSpawnEvidence(events: readonly TrajectoryEvent[]): SpawnE
     const call = calls.get(callId);
     const toolName = readNonBlankString(message.toolName) ?? call?.name;
     if (toolName !== "sessions_spawn") continue;
+    const payloads = toolResultPayload(message);
+    if (payloads.some(hasFailureMarker)) continue;
     const children = new Set<string>();
-    for (const payload of toolResultPayload(message))
-      collectStructuredChildKeys(payload, undefined, children);
+    for (const payload of payloads) collectStructuredChildKeys(payload, undefined, children);
     for (const childSessionKey of children) {
       evidence.push({
         toolCallId: callId,
@@ -95,7 +118,8 @@ export function extractSpawnEvidence(events: readonly TrajectoryEvent[]): SpawnE
       evidence.map((item) => [`${item.toolCallId}\u0000${item.childSessionKey}`, item]),
     ).values(),
   ].sort((left, right) =>
-    `${left.toolCallId}\u0000${left.childSessionKey}`.localeCompare(
+    compareCodeUnits(
+      `${left.toolCallId}\u0000${left.childSessionKey}`,
       `${right.toolCallId}\u0000${right.childSessionKey}`,
     ),
   );

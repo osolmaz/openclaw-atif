@@ -4,6 +4,7 @@ import {
   type SessionListingRow,
   sessionListingSchema,
 } from "../models/bundle-v1.js";
+import { compareCodeUnits } from "../ordering.js";
 import { stableCompactStringify } from "../stable-json.js";
 
 export function parseSessionListing(value: unknown): SessionListing {
@@ -56,6 +57,6 @@ function fingerprintRow(row: SessionListingRow): Record<string, unknown> {
 export function listingFingerprint(rows: readonly SessionListingRow[]): string {
   const canonical = rows
     .map(fingerprintRow)
-    .sort((left, right) => String(left.key).localeCompare(String(right.key)));
+    .sort((left, right) => compareCodeUnits(String(left.key), String(right.key)));
   return createHash("sha256").update(stableCompactStringify(canonical)).digest("hex");
 }

@@ -5,6 +5,7 @@ import { type Diagnostic, deduplicateDiagnostics } from "./diagnostics.js";
 import type { LegacyMigrationReceipt } from "./legacy/migrate-copy.js";
 import type { SessionFamilySnapshot } from "./models/family.js";
 import type { ExportReceipt, MetricTotals } from "./models/receipt.js";
+import { compareCodeUnits } from "./ordering.js";
 import { stableStringify } from "./stable-json.js";
 import { OPENCLAW_BUNDLE_SCHEMA, OPENCLAW_BUNDLE_VERSION } from "./version.js";
 
@@ -61,7 +62,7 @@ export function buildReceipt(params: {
       trajectoryId: params.trajectory.trajectory_id,
     },
     nodes: [...params.family.nodes.values()]
-      .sort((left, right) => left.key.localeCompare(right.key))
+      .sort((left, right) => compareCodeUnits(left.key, right.key))
       .map((node) => ({
         sessionKey: node.key,
         sessionId: node.sessionId,
