@@ -1,8 +1,12 @@
-import { mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { combineExportErrors, convertOpenClawBundles } from "../src/exporter.js";
+import {
+  combineExportErrors,
+  convertOpenClawBundles,
+  exportOpenClawFamily,
+} from "../src/exporter.js";
 import { childEvents, rootEvents, writeBundle } from "./helpers.js";
 
 async function fixture(listingOnly = false) {
@@ -53,6 +57,24 @@ describe("convertOpenClawBundles", () => {
     expect(error?.message).toContain("cleanup failed");
     expect((error as AggregateError).errors).toHaveLength(2);
   });
+  it("cleans failed staging even when source retention was requested", async () => {
+    const before = new Set(
+      (await readdir(tmpdir())).filter((name) => name.startsWith(".openclaw-atif-")),
+    );
+    await expect(
+      exportOpenClawFamily({
+        executable: join(tmpdir(), "missing-openclaw-executable"),
+        sessionKey: "agent:main:main",
+        output: join(tmpdir(), "unused-openclaw-atif-output"),
+        keepSourceBundles: true,
+      }),
+    ).rejects.toThrow();
+    const added = (await readdir(tmpdir())).filter(
+      (name) => name.startsWith(".openclaw-atif-") && !before.has(name),
+    );
+    expect(added).toEqual([]);
+  });
+
   it("writes a complete owner-only atomic export", async () => {
     const value = await fixture();
     const result = await convertOpenClawBundles({

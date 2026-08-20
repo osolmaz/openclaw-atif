@@ -8,17 +8,43 @@ import { loadCapturedFamilyFromGraph } from "../src/capture/graph.js";
 import { normalizeFamily } from "../src/normalize/family.js";
 import { childEvents, event, rootEvents, writeBundle } from "./helpers.js";
 
-async function buildFamily(options: { listingOnly?: boolean; childKey?: string } = {}) {
+async function buildFamily(
+  options: {
+    listingOnly?: boolean;
+    childKey?: string;
+    replayedResult?: boolean;
+    relationshipKind?: "native-subagent" | "acp-child" | "visible-child";
+  } = {},
+) {
   const root = await mkdtemp(join(tmpdir(), "openclaw-atif-map-"));
   const childKey = options.childKey ?? "agent:main:subagent:child";
+  const rootSourceEvents = rootEvents("root-session", childKey).filter(
+    (item) => !options.listingOnly || item.type !== "tool.result",
+  );
+  if (options.replayedResult) {
+    rootSourceEvents.push(
+      event({
+        seq: rootSourceEvents.length + 1,
+        source: "transcript",
+        type: "tool.result",
+        sessionId: "root-session",
+        entryId: "replayed-result",
+        data: {
+          message: {
+            toolCallId: "call-1",
+            toolName: "sessions_spawn",
+            content: JSON.stringify({ status: "error", error: "late replay" }),
+          },
+        },
+      }),
+    );
+  }
   await writeBundle({
     root,
     name: "root",
     sessionId: "root-session",
     sessionKey: "agent:main:main",
-    events: rootEvents("root-session", childKey)
-      .filter((item) => !options.listingOnly || item.type !== "tool.result")
-      .map((item, index) => ({ ...item, seq: index + 1 })),
+    events: rootSourceEvents.map((item, index) => ({ ...item, seq: index + 1 })),
   });
   await writeBundle({
     root,
@@ -37,7 +63,9 @@ async function buildFamily(options: { listingOnly?: boolean; childKey?: string }
         sessionKey: childKey,
         bundleDir: "child",
         parentKey: "agent:main:main",
-        relationshipKind: childKey.includes(":acp:") ? "acp-child" : "native-subagent",
+        relationshipKind:
+          options.relationshipKind ??
+          (childKey.includes(":acp:") ? "acp-child" : "native-subagent"),
         ...(options.listingOnly ? {} : { toolCallId: "call-1" }),
       },
     ],
@@ -64,6 +92,20 @@ describe("mapFamilyToAtif", () => {
     expect(first.trajectory.final_metrics?.total_prompt_tokens).toBe(13);
     expect(child?.final_metrics?.total_prompt_tokens).toBe(3);
     expect(first.trajectory.final_metrics?.total_prompt_tokens).not.toBe(15);
+  });
+
+  it("reports metrics for captured nodes that ATIF does not recursively embed", async () => {
+    const result = mapFamilyToAtif(await buildFamily({ relationshipKind: "visible-child" }));
+    expect(result.trajectory.subagent_trajectories).toBeUndefined();
+    expect(result.nodeMetrics.size).toBe(2);
+    expect(result.nodeMetrics.get("agent:main:subagent:child")?.total_prompt_tokens).toBe(3);
+  });
+
+  it("attaches a subagent reference only to the proven result event", async () => {
+    const result = mapFamilyToAtif(await buildFamily({ replayedResult: true }));
+    const results = result.trajectory.steps.flatMap((step) => step.observation?.results ?? []);
+    expect(results.filter((item) => item.subagent_trajectory_ref !== undefined)).toHaveLength(1);
+    expect(results.at(-1)?.subagent_trajectory_ref).toBeUndefined();
   });
 
   it("embeds listing-only children without fabricating a tool reference", async () => {
