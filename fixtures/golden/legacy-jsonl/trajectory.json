@@ -117,7 +117,7 @@
       "observation": {
         "results": [
           {
-            "content": "{\"childSessionKey\":\"agent:main:subagent:child\",\"status\":\"accepted\"}",
+            "content": "{\"childSessionKey\":\"agent:main:subagent:child\",\"status\":\"accepted\",\"runId\":\"legacy-jsonl-child-run\"}",
             "extra": {
               "openclaw": {
                 "entry_id": "r",
@@ -125,7 +125,16 @@
                 "tool_name": "sessions_spawn"
               }
             },
-            "source_call_id": "spawn-1"
+            "source_call_id": "spawn-1",
+            "subagent_trajectory_ref": [
+              {
+                "extra": {
+                  "relationship_kind": "native-subagent"
+                },
+                "session_id": "legacy-jsonl-child-session",
+                "trajectory_id": "openclaw-d4cd81baafac97a8665880bb078fd68a"
+              }
+            ]
           }
         ]
       },

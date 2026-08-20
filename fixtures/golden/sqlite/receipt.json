@@ -1,11 +1,5 @@
 {
-  "diagnostics": [
-    {
-      "code": "subagent-reference-unresolved",
-      "message": "Listing lineage proves a child, but no exact sessions_spawn tool result is available",
-      "nodeKey": "agent:main:main"
-    }
-  ],
+  "diagnostics": [],
   "familyMetrics": {
     "cachedTokens": 2,
     "completionTokens": 5,
@@ -22,33 +16,27 @@
       "sessionId": "sqlite-child-session",
       "sessionKey": "agent:main:acp:child",
       "sourceHashes": {
-        "events.jsonl": "a56c9e82303f69023b5fd7080fc2475d556480f279c93269795eea22c793a431",
+        "events.jsonl": "c95f56c96ec62a5ea904b7f45aeb4df91c8a5a07d7c7fcd82ce1b47ff2c59799",
         "manifest.semantic-v1": "be62bb4af3b5f5e384b49db093049212b27896c511ebf9ffafe45ed56af56a86",
         "session-branch.json": "aace7ead09b3e27a63f0b7d1c6e7690b303e1cbbf25b4d7b66ffee963ccb1ec8"
       }
     },
     {
       "branchCoverage": "selected-active-leaf",
-      "diagnostics": [
-        {
-          "code": "subagent-reference-unresolved",
-          "message": "Listing lineage proves a child, but no exact sessions_spawn tool result is available",
-          "nodeKey": "agent:main:main"
-        }
-      ],
+      "diagnostics": [],
       "generationCoverage": "public-exported-generation",
       "leafId": "leaf-1",
       "sessionId": "sqlite-root-session",
       "sessionKey": "agent:main:main",
       "sourceHashes": {
-        "events.jsonl": "69f38f64f7303608ed472c1bd93148e1fb256a5e5535568de58d60b75a753dd0",
+        "events.jsonl": "6ce1004e3f3fff562bdac1e3a2f55ba461216036cc11d07fb936551e1b988448",
         "manifest.semantic-v1": "8a41474db613b354b08fdc56f9feeedf5f1669a64e1d0a62dd469d10025a8688",
         "session-branch.json": "18e60339aba54562c089c58717b3a84bfd650db4d2a7ad4097e7c7a9627eb5a3"
       }
     }
   ],
   "output": {
-    "trajectorySha256": "b0be877f15bc5449e200e43dfdaec816bdbdd7c36431b56c4d8359198b776622"
+    "trajectorySha256": "db2e8b041782006af3e4e7e8f3fa42815c0ac090de17eccdef78c1421066c425"
   },
   "relationships": [
     {
@@ -56,7 +44,8 @@
       "kind": "acp-child",
       "listing": true,
       "parentKey": "agent:main:main",
-      "referenceStatus": "unresolved"
+      "referenceStatus": "resolved",
+      "toolCallId": "spawn-1"
     }
   ],
   "root": {
@@ -75,7 +64,7 @@
     "redacted": true,
     "stable": true
   },
-  "status": "partial",
+  "status": "complete",
   "validation": {
     "harbor": "not-run-runtime",
     "harborConformanceCommit": "c3ce0c60bbd2fd1888b327efcc880dbd86d8b7cf",

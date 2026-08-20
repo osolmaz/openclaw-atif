@@ -11,7 +11,7 @@ await rm(goldenRoot, { recursive: true, force: true });
 await mkdir(bundlesRoot, { recursive: true });
 await mkdir(goldenRoot, { recursive: true });
 
-function event({ seq, source, type, sessionId, entryId, data }) {
+function event({ seq, source, type, sessionId, runId, entryId, data }) {
   return {
     traceSchema: "openclaw-trajectory",
     schemaVersion: 1,
@@ -21,6 +21,7 @@ function event({ seq, source, type, sessionId, entryId, data }) {
     ts: `2026-01-01T00:00:${String(seq).padStart(2, "0")}.000Z`,
     seq,
     sessionId,
+    ...(runId ? { runId } : {}),
     ...(entryId ? { entryId } : {}),
     ...(data ? { data } : {}),
   };
@@ -57,13 +58,14 @@ async function writeBundle(directory, sessionKey, sessionId, events) {
   );
 }
 
-function childEvents(sessionId) {
+function childEvents(sessionId, runId) {
   return [
     event({
       seq: 1,
       source: "runtime",
       type: "trace.metadata",
       sessionId,
+      runId,
       data: { harness: { version: "2026.7.1-2" }, model: { provider: "openai", name: "gpt-test" } },
     }),
     event({
@@ -71,6 +73,7 @@ function childEvents(sessionId) {
       source: "transcript",
       type: "user.message",
       sessionId,
+      runId,
       entryId: "u",
       data: { message: { role: "user", content: "Do the delegated work." } },
     }),
@@ -79,6 +82,7 @@ function childEvents(sessionId) {
       source: "transcript",
       type: "assistant.message",
       sessionId,
+      runId,
       entryId: "a",
       data: {
         message: {
@@ -93,7 +97,7 @@ function childEvents(sessionId) {
   ];
 }
 
-function rootEvents(sessionId, childKey) {
+function rootEvents(sessionId, childKey, childRunId) {
   return [
     event({
       seq: 1,
@@ -165,7 +169,11 @@ function rootEvents(sessionId, childKey) {
           role: "toolResult",
           toolCallId: "spawn-1",
           toolName: "sessions_spawn",
-          content: JSON.stringify({ childSessionKey: childKey, status: "accepted" }),
+          content: JSON.stringify({
+            childSessionKey: childKey,
+            status: "accepted",
+            runId: childRunId,
+          }),
         },
       },
     }),
@@ -174,17 +182,18 @@ function rootEvents(sessionId, childKey) {
 
 async function generateFamily(name, version, childKey, relationshipKind, exactReference) {
   const familyRoot = join(bundlesRoot, name);
+  const childRunId = `${name}-child-run`;
   await writeBundle(
     join(familyRoot, "root"),
     "agent:main:main",
     `${name}-root-session`,
-    rootEvents(`${name}-root-session`, childKey),
+    rootEvents(`${name}-root-session`, childKey, childRunId),
   );
   await writeBundle(
     join(familyRoot, "child"),
     childKey,
     `${name}-child-session`,
-    childEvents(`${name}-child-session`),
+    childEvents(`${name}-child-session`, childRunId),
   );
   const graph = {
     schema: "openclaw-atif-bundle-graph-v1",
