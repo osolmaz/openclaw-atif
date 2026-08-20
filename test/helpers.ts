@@ -150,7 +150,11 @@ export function rootEvents(
           role: "toolResult",
           toolCallId: "call-1",
           toolName: "sessions_spawn",
-          content: JSON.stringify({ status: "accepted", childSessionKey: childKey }),
+          content: JSON.stringify({
+            status: "accepted",
+            childSessionKey: childKey,
+            runId: "child-run",
+          }),
         },
       },
     }),
@@ -172,6 +176,7 @@ export function childEvents(sessionId = "child-session"): TrajectoryEvent[] {
       source: "runtime",
       type: "trace.metadata",
       sessionId,
+      runId: "child-run",
       data: { harness: { version: "2026.8.1" }, model: { provider: "openai", name: "gpt-test" } },
     }),
     event({
@@ -179,6 +184,7 @@ export function childEvents(sessionId = "child-session"): TrajectoryEvent[] {
       source: "transcript",
       type: "user.message",
       sessionId,
+      runId: "child-run",
       entryId: "cu1",
       data: { message: { role: "user", content: "Do child work." } },
     }),
@@ -187,6 +193,7 @@ export function childEvents(sessionId = "child-session"): TrajectoryEvent[] {
       source: "transcript",
       type: "assistant.message",
       sessionId,
+      runId: "child-run",
       entryId: "ca1",
       data: {
         message: {

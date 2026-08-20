@@ -15,7 +15,7 @@ import {
   parseSessionListing,
   selectRoot,
 } from "./listing.js";
-import { discoverRelationships } from "./relationships.js";
+import { discoverRelationships, spawnMatchesBundle } from "./relationships.js";
 
 class CaptureRaceError extends Error {
   constructor(message: string, options?: ErrorOptions) {
@@ -71,6 +71,7 @@ async function exportNode(
   options: CaptureOptions,
   row: ExportableSessionListingRow,
   sequence: number,
+  relationship?: RelationshipEvidence,
 ): Promise<SourceNode> {
   const outputName = `session-${String(sequence).padStart(4, "0")}`;
   let result: CommandResult;
@@ -106,6 +107,8 @@ async function exportNode(
     throw new CaptureRaceError(`Bundle sessionId does not match listing for ${row.key}`);
   if (bundle.observedSessionKey && bundle.observedSessionKey !== row.key)
     throw new Error(`Bundle sessionKey does not match listing for ${row.key}`);
+  if (relationship?.spawn && !spawnMatchesBundle(relationship.spawn, bundle))
+    throw new CaptureRaceError(`Child generation evidence does not match ${row.key}`);
   return { key: row.key, sessionId: row.sessionId, row, bundle };
 }
 
@@ -134,6 +137,7 @@ async function captureAttempt(
   const relationships: RelationshipEvidence[] = [];
   const parentByChild = new Map<string, string>();
   const diagnostics: Diagnostic[] = [];
+  let exportSequence = 0;
   const maxNodes = options.maxNodes ?? 128;
   const maxDepth = options.maxDepth ?? 16;
   if (!Number.isSafeInteger(maxNodes) || maxNodes <= 0) {
@@ -150,8 +154,9 @@ async function captureAttempt(
     if (item.depth > maxDepth)
       throw new Error(`Session family exceeds depth limit ${String(maxDepth)}`);
     let node: SourceNode;
+    exportSequence += 1;
     try {
-      node = await exportNode(options, item.row, nodes.size + 1);
+      node = await exportNode(options, item.row, exportSequence, item.parent);
     } catch (error) {
       if (error instanceof CaptureRaceError && item.parent && allowPartialChildRaces) {
         diagnostics.push({

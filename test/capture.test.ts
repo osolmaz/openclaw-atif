@@ -115,6 +115,31 @@ describe("captureOpenClawFamily", () => {
     expect(family.diagnostics.some((item) => item.code === "child-export-unavailable")).toBe(true);
   });
 
+  it("does not embed a replacement child generation when spawn run evidence differs", async () => {
+    const fake = await fakeOpenClaw();
+    const eventsPath = join(fake.bundles, "child", "events.jsonl");
+    const events = (await readFile(eventsPath, "utf8"))
+      .trim()
+      .split("\n")
+      .map((line) => ({
+        ...(JSON.parse(line) as Record<string, unknown>),
+        runId: "replacement-run",
+      }));
+    await writeFile(eventsPath, `${events.map((event) => JSON.stringify(event)).join("\n")}\n`);
+    const staging = join(fake.root, "staging-generation-mismatch");
+    await (await import("node:fs/promises")).mkdir(staging, { mode: 0o700 });
+    const family = await captureOpenClawFamily({
+      executable: fake.script,
+      openclawVersion: "2026.8.1-test",
+      stagingRoot: staging,
+      sessionKey: "agent:main:main",
+      retries: 2,
+      command: { env: { ...process.env, BUNDLE_ROOT: fake.bundles } },
+    });
+    expect(family.nodes.has("agent:main:subagent:child")).toBe(false);
+    expect(family.diagnostics.some((item) => item.code === "child-export-unavailable")).toBe(true);
+  });
+
   it("runs the complete public export pipeline", async () => {
     const fake = await fakeOpenClaw();
     const output = join(fake.root, "output");

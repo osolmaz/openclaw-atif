@@ -1,5 +1,11 @@
 {
-  "diagnostics": [],
+  "diagnostics": [
+    {
+      "code": "subagent-reference-unresolved",
+      "message": "Listing lineage proves a child, but no exact sessions_spawn tool result is available",
+      "nodeKey": "agent:main:main"
+    }
+  ],
   "familyMetrics": {
     "cachedTokens": 2,
     "completionTokens": 5,
@@ -23,7 +29,13 @@
     },
     {
       "branchCoverage": "selected-active-leaf",
-      "diagnostics": [],
+      "diagnostics": [
+        {
+          "code": "subagent-reference-unresolved",
+          "message": "Listing lineage proves a child, but no exact sessions_spawn tool result is available",
+          "nodeKey": "agent:main:main"
+        }
+      ],
       "generationCoverage": "public-exported-generation",
       "leafId": "leaf-1",
       "sessionId": "sqlite-root-session",
@@ -36,7 +48,7 @@
     }
   ],
   "output": {
-    "trajectorySha256": "1042034df4c102c9e762a02e7a5606a1acb52411f7aaff0799a483e1838f6ec2"
+    "trajectorySha256": "b0be877f15bc5449e200e43dfdaec816bdbdd7c36431b56c4d8359198b776622"
   },
   "relationships": [
     {
@@ -44,8 +56,7 @@
       "kind": "acp-child",
       "listing": true,
       "parentKey": "agent:main:main",
-      "referenceStatus": "resolved",
-      "toolCallId": "spawn-1"
+      "referenceStatus": "unresolved"
     }
   ],
   "root": {
@@ -64,7 +75,7 @@
     "redacted": true,
     "stable": true
   },
-  "status": "complete",
+  "status": "partial",
   "validation": {
     "harbor": "not-run-runtime",
     "harborConformanceCommit": "c3ce0c60bbd2fd1888b327efcc880dbd86d8b7cf",
