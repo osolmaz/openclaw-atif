@@ -1,0 +1,11 @@
+node_modules/
+dist/
+coverage/
+mutation/
+*.tgz
+.env
+.env.*
+!.env.example
+.DS_Store
+*.log
+.openclaw-atif-tmp-*
