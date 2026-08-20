@@ -1,11 +1,5 @@
 {
-  "diagnostics": [
-    {
-      "code": "subagent-reference-unresolved",
-      "message": "Listing lineage proves a child, but no exact sessions_spawn tool result is available",
-      "nodeKey": "agent:main:main"
-    }
-  ],
+  "diagnostics": [],
   "familyMetrics": {
     "cachedTokens": 2,
     "completionTokens": 5,
@@ -16,19 +10,13 @@
   "nodes": [
     {
       "branchCoverage": "selected-active-leaf",
-      "diagnostics": [
-        {
-          "code": "subagent-reference-unresolved",
-          "message": "Listing lineage proves a child, but no exact sessions_spawn tool result is available",
-          "nodeKey": "agent:main:main"
-        }
-      ],
+      "diagnostics": [],
       "generationCoverage": "public-exported-generation",
       "leafId": "leaf-1",
       "sessionId": "legacy-jsonl-root-session",
       "sessionKey": "agent:main:main",
       "sourceHashes": {
-        "events.jsonl": "a2a5e7c1183e740953948fb43546968c80c930b24cb9cbe9760439a00b6c4ace",
+        "events.jsonl": "69b9f0e5254686025b65a4f05887b40a647aaf1fc29b76751030c22e6b0e2025",
         "manifest.semantic-v1": "8785425c292eda4292da22cf63dad29f3862d06fe7bbe00eb6e692afdec8dbdc",
         "session-branch.json": "7ad88626ccb68fbee8098c52bfb3234031ca2e93a3a47af6e5383c1f63162b22"
       }
@@ -41,14 +29,14 @@
       "sessionId": "legacy-jsonl-child-session",
       "sessionKey": "agent:main:subagent:child",
       "sourceHashes": {
-        "events.jsonl": "4ab9a51930a8ab1e92bb1e4f5d075ca1bc4ebf1c8285663abc1a1df0ee46a05e",
+        "events.jsonl": "3e3ffad8ab4c9a78c2441d3abbe13679dac2e1ef3933a1ccc95a00cf62b429d3",
         "manifest.semantic-v1": "d03cc7a4654b09551a472b3eb4701a25da47d5b4d9666c7a88c1b68b23d3d648",
         "session-branch.json": "e07054f8c9a1a6074c4d3226ac544dc71107794f1b0d1561c7d7c9d6c77a05b0"
       }
     }
   ],
   "output": {
-    "trajectorySha256": "b8254c7571a083410e1e32ff2a3748828c2ecb4776024a481d55bb5d019ab6ff"
+    "trajectorySha256": "2e6e3c0ba763be621a2eb68510bd7bfa68cd378c26a3ce439cf6d2e77d284609"
   },
   "relationships": [
     {
@@ -56,7 +44,8 @@
       "kind": "native-subagent",
       "listing": true,
       "parentKey": "agent:main:main",
-      "referenceStatus": "unresolved"
+      "referenceStatus": "resolved",
+      "toolCallId": "spawn-1"
     }
   ],
   "root": {
@@ -75,7 +64,7 @@
     "redacted": true,
     "stable": true
   },
-  "status": "partial",
+  "status": "complete",
   "validation": {
     "harbor": "not-run-runtime",
     "harborConformanceCommit": "c3ce0c60bbd2fd1888b327efcc880dbd86d8b7cf",

@@ -117,7 +117,7 @@
       "observation": {
         "results": [
           {
-            "content": "{\"childSessionKey\":\"agent:main:acp:child\",\"status\":\"accepted\"}",
+            "content": "{\"childSessionKey\":\"agent:main:acp:child\",\"status\":\"accepted\",\"runId\":\"sqlite-child-run\"}",
             "extra": {
               "openclaw": {
                 "entry_id": "r",
@@ -125,7 +125,16 @@
                 "tool_name": "sessions_spawn"
               }
             },
-            "source_call_id": "spawn-1"
+            "source_call_id": "spawn-1",
+            "subagent_trajectory_ref": [
+              {
+                "extra": {
+                  "relationship_kind": "acp-child"
+                },
+                "session_id": "sqlite-child-session",
+                "trajectory_id": "openclaw-dd926c52c504e21909f21dd192b1e053"
+              }
+            ]
           }
         ]
       },
