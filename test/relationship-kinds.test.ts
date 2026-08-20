@@ -72,7 +72,7 @@ describe("relationship kinds and structured payloads", () => {
         data: {
           message: {
             toolCallId: "call",
-            details: { nested: [{ sessionKey: "agent:main:subagent:one" }] },
+            details: { runId: "child-run", nested: [{ sessionKey: "agent:main:subagent:one" }] },
             content: [
               { type: "text", text: JSON.stringify({ childSessionKey: "agent:main:acp:two" }) },
               { type: "other", text: "ignored" },
@@ -86,9 +86,12 @@ describe("relationship kinds and structured payloads", () => {
       "agent:main:acp:two",
       "agent:main:subagent:one",
     ]);
-    expect(evidence.every((item) => item.visible === true && item.runtime === "subagent")).toBe(
-      true,
-    );
+    expect(
+      evidence.every(
+        (item) =>
+          item.visible === true && item.runtime === "subagent" && item.runId === "child-run",
+      ),
+    ).toBe(true);
   });
 
   it("ignores unrelated tools, missing call IDs, and malformed exact JSON", () => {

@@ -13,7 +13,7 @@ import type {
 import { loadOpenClawBundle } from "../openclaw/bundle-v1.js";
 import { stableCompactStringify } from "../stable-json.js";
 import { DEFAULT_PROFILE } from "../version.js";
-import { extractSpawnEvidence } from "./relationships.js";
+import { extractSpawnEvidence, spawnMatchesBundle } from "./relationships.js";
 
 const RELATIONSHIP_KINDS = new Set<RelationshipKind>([
   "native-subagent",
@@ -118,12 +118,13 @@ export async function loadCapturedFamilyFromGraph(
       throw new Error(
         `Bundle graph toolCallId is not proven by the parent bundle: ${graphNode.toolCallId}`,
       );
+    const verifiedSpawn = spawn && spawnMatchesBundle(spawn, source.bundle) ? spawn : undefined;
     const relationship: RelationshipEvidence = {
       parentKey: graphNode.parentKey,
       childKey: graphNode.sessionKey,
       kind: graphNode.relationshipKind ?? "unknown-child",
       listing: true,
-      ...(spawn ? { spawn } : {}),
+      ...(verifiedSpawn ? { spawn: verifiedSpawn } : {}),
     };
     source.parentKey = graphNode.parentKey;
     source.relationship = relationship;

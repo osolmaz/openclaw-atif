@@ -109,6 +109,10 @@ export async function prepareLegacyMigrationCopy(params: {
     preserveTimestamps: true,
   });
   await chmod(destination, 0o700);
+  await assertNoSymlinks(destination);
+  const afterCopy = await treeFingerprint(source);
+  if (before !== afterCopy)
+    throw new Error("Legacy source state changed while creating the migration copy");
   await confineCopiedSessionStore(source, destination);
   const commands: LegacyMigrationReceipt["commands"] = [];
   const commandOptions = {

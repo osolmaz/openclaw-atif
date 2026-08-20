@@ -1,6 +1,6 @@
 /* eslint-disable complexity -- Relationship evidence parsing is explicit and bounded. */
 import { asRecord, readNonBlankString } from "../json.js";
-import type { SessionListingRow, TrajectoryEvent } from "../models/bundle-v1.js";
+import type { OpenClawBundleV1, SessionListingRow, TrajectoryEvent } from "../models/bundle-v1.js";
 import type { RelationshipEvidence, RelationshipKind, SpawnEvidence } from "../models/family.js";
 import { compareCodeUnits } from "../ordering.js";
 
@@ -22,6 +22,26 @@ function collectStructuredChildKeys(
   const record = asRecord(value);
   if (record) {
     for (const [key, item] of Object.entries(record)) collectStructuredChildKeys(item, key, found);
+  }
+  return found;
+}
+
+function collectStructuredRunIds(
+  value: unknown,
+  fieldName?: string,
+  found = new Set<string>(),
+): Set<string> {
+  if (fieldName === "runId") {
+    const candidate = readNonBlankString(value);
+    if (candidate) found.add(candidate);
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) collectStructuredRunIds(item, fieldName, found);
+    return found;
+  }
+  const record = asRecord(value);
+  if (record) {
+    for (const [key, item] of Object.entries(record)) collectStructuredRunIds(item, key, found);
   }
   return found;
 }
@@ -103,12 +123,18 @@ export function extractSpawnEvidence(events: readonly TrajectoryEvent[]): SpawnE
     const payloads = toolResultPayload(message);
     if (payloads.some(hasFailureMarker)) continue;
     const children = new Set<string>();
-    for (const payload of payloads) collectStructuredChildKeys(payload, undefined, children);
+    const runIds = new Set<string>();
+    for (const payload of payloads) {
+      collectStructuredChildKeys(payload, undefined, children);
+      collectStructuredRunIds(payload, undefined, runIds);
+    }
+    const runId = runIds.size === 1 ? [...runIds][0] : undefined;
     for (const childSessionKey of children) {
       evidence.push({
         toolCallId: callId,
         childSessionKey,
         eventId: event.entryId,
+        ...(runId ? { runId } : {}),
         ...(call.runtime ? { runtime: call.runtime } : {}),
         ...(call.visible !== undefined ? { visible: call.visible } : {}),
       });
@@ -124,6 +150,10 @@ export function extractSpawnEvidence(events: readonly TrajectoryEvent[]): SpawnE
       `${right.toolCallId}\u0000${right.childSessionKey}`,
     ),
   );
+}
+
+export function spawnMatchesBundle(spawn: SpawnEvidence, bundle: OpenClawBundleV1): boolean {
+  return spawn.runId !== undefined && bundle.events.some((event) => event.runId === spawn.runId);
 }
 
 export function isAcpListingRow(row: SessionListingRow): boolean {

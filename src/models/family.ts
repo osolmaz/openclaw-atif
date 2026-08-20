@@ -15,6 +15,7 @@ export interface SpawnEvidence {
   toolCallId: string;
   childSessionKey: string;
   eventId?: string;
+  runId?: string;
   runtime?: string;
   visible?: boolean;
 }
