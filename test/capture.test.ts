@@ -39,7 +39,7 @@ async function fakeOpenClaw() {
   await writeFile(
     script,
     `#!/usr/bin/env node
-import { cp, mkdir, readFile, writeFile } from "node:fs/promises";
+import { appendFile, cp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 const args = process.argv.slice(2);
 if (args[0] === "--version") { console.log("2026.8.1-test"); process.exit(0); }
@@ -52,13 +52,18 @@ if (args[0] === "sessions" && args[1] === "export-trajectory") {
   const workspace = args[args.indexOf("--workspace") + 1];
   const output = args[args.indexOf("--output") + 1];
   const destination = join(workspace, ".openclaw", "trajectory-exports", output);
+  const isChild = key.includes(":subagent:");
+  if (isChild && process.env.FAIL_CHILD_COUNTER) {
+    await appendFile(process.env.FAIL_CHILD_COUNTER, "attempt\\n");
+    if (process.env.FAIL_CHILD_ALWAYS === "1") process.exit(3);
+  }
   await mkdir(join(workspace, ".openclaw", "trajectory-exports"), { recursive: true });
-  await cp(join(process.env.BUNDLE_ROOT, key.includes(":subagent:") ? "child" : "root"), destination, { recursive: true });
+  await cp(join(process.env.BUNDLE_ROOT, isChild ? "child" : "root"), destination, { recursive: true });
   const manifestPath = join(destination, "manifest.json");
   const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
   manifest.generatedAt = new Date().toISOString();
   await writeFile(manifestPath, JSON.stringify(manifest));
-  console.log(JSON.stringify({ outputDir: destination, sessionId: key.includes(":subagent:") ? "child-session" : "root-session", files: ["manifest.json", "events.jsonl", "session-branch.json"] }));
+  console.log(JSON.stringify({ outputDir: destination, sessionId: isChild ? "child-session" : "root-session", files: ["manifest.json", "events.jsonl", "session-branch.json"] }));
   process.exit(0);
 }
 process.exit(2);
@@ -83,6 +88,31 @@ describe("captureOpenClawFamily", () => {
     expect(family.stable).toBe(true);
     expect(family.nodes.size).toBe(2);
     expect(family.relationships[0]?.spawn?.toolCallId).toBe("call-1");
+  });
+
+  it("retries transient child export races and returns a partial root after the final attempt", async () => {
+    const fake = await fakeOpenClaw();
+    const staging = join(fake.root, "staging-race");
+    const counter = join(fake.root, "child-attempts.txt");
+    await (await import("node:fs/promises")).mkdir(staging, { mode: 0o700 });
+    const family = await captureOpenClawFamily({
+      executable: fake.script,
+      openclawVersion: "2026.8.1-test",
+      stagingRoot: staging,
+      sessionKey: "agent:main:main",
+      retries: 3,
+      command: {
+        env: {
+          ...process.env,
+          BUNDLE_ROOT: fake.bundles,
+          FAIL_CHILD_COUNTER: counter,
+          FAIL_CHILD_ALWAYS: "1",
+        },
+      },
+    });
+    expect((await readFile(counter, "utf8")).trim().split("\n")).toHaveLength(3);
+    expect(family.nodes.size).toBe(1);
+    expect(family.diagnostics.some((item) => item.code === "child-export-unavailable")).toBe(true);
   });
 
   it("runs the complete public export pipeline", async () => {
@@ -110,8 +140,14 @@ describe("captureOpenClawFamily", () => {
     const fake = await fakeOpenClaw();
     const manifestPath = join(fake.bundles, "child", "manifest.json");
     const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as Record<string, unknown>;
-    manifest.sessionKey = "agent:main:subagent:other";
+    delete manifest.sessionKey;
     await writeFile(manifestPath, JSON.stringify(manifest));
+    const eventsPath = join(fake.bundles, "child", "events.jsonl");
+    const events = (await readFile(eventsPath, "utf8"))
+      .trim()
+      .split("\n")
+      .map((line) => ({ ...(JSON.parse(line) as Record<string, unknown>), sessionKey: "other" }));
+    await writeFile(eventsPath, `${events.map((event) => JSON.stringify(event)).join("\n")}\n`);
     const staging = join(fake.root, "staging-key-mismatch");
     await (await import("node:fs/promises")).mkdir(staging, { mode: 0o700 });
     await expect(

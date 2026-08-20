@@ -7,10 +7,17 @@ import type { SessionListing, SessionListingRow } from "../models/bundle-v1.js";
 import type { CapturedFamily, RelationshipEvidence, SourceNode } from "../models/family.js";
 import { loadOpenClawBundle } from "../openclaw/bundle-v1.js";
 import { parseStructuredOutput } from "../openclaw/capabilities.js";
-import { type CommandOptions, runOpenClaw } from "../openclaw/process.js";
+import { type CommandOptions, type CommandResult, runOpenClaw } from "../openclaw/process.js";
 import { DEFAULT_PROFILE } from "../version.js";
 import { listingFingerprint, parseSessionListing, selectRoot } from "./listing.js";
 import { discoverRelationships } from "./relationships.js";
+
+class CaptureRaceError extends Error {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = "CaptureRaceError";
+  }
+}
 
 export interface CaptureOptions {
   executable: string;
@@ -61,33 +68,38 @@ async function exportNode(
   sequence: number,
 ): Promise<SourceNode> {
   const outputName = `session-${String(sequence).padStart(4, "0")}`;
-  const result = await runOpenClaw(
-    options.executable,
-    [
-      "sessions",
-      "export-trajectory",
-      "--session-key",
-      row.key,
-      "--workspace",
-      options.stagingRoot,
-      "--output",
-      outputName,
-      "--json",
-    ],
-    { ...options.command, env: commandEnvironment(options.stateDir, options.command?.env) },
-  );
+  let result: CommandResult;
+  try {
+    result = await runOpenClaw(
+      options.executable,
+      [
+        "sessions",
+        "export-trajectory",
+        "--session-key",
+        row.key,
+        "--workspace",
+        options.stagingRoot,
+        "--output",
+        outputName,
+        "--json",
+      ],
+      { ...options.command, env: commandEnvironment(options.stateDir, options.command?.env) },
+    );
+  } catch (error) {
+    throw new CaptureRaceError(`OpenClaw could not export session ${row.key}`, { cause: error });
+  }
   const summary = parseStructuredOutput(result.stdout);
   const outputDir = readNonBlankString(summary.outputDir);
   const sessionId = readNonBlankString(summary.sessionId);
   if (!outputDir || !sessionId)
-    throw new Error("OpenClaw export summary is missing outputDir or sessionId");
+    throw new CaptureRaceError("OpenClaw export summary is missing outputDir or sessionId");
   if (sessionId !== row.sessionId)
-    throw new Error(`OpenClaw exported a different session generation for ${row.key}`);
+    throw new CaptureRaceError(`OpenClaw exported a different session generation for ${row.key}`);
   const directory = await validateBundleDirectory(options.stagingRoot, outputDir);
   const bundle = await loadOpenClawBundle(directory);
   if (bundle.manifest.sessionId !== row.sessionId)
-    throw new Error(`Bundle sessionId does not match listing for ${row.key}`);
-  if (bundle.manifest.sessionKey && bundle.manifest.sessionKey !== row.key)
+    throw new CaptureRaceError(`Bundle sessionId does not match listing for ${row.key}`);
+  if (bundle.observedSessionKey && bundle.observedSessionKey !== row.key)
     throw new Error(`Bundle sessionKey does not match listing for ${row.key}`);
   return { key: row.key, sessionId: row.sessionId, row, bundle };
 }
@@ -101,7 +113,10 @@ function relevantRows(listing: SessionListing, keys: ReadonlySet<string>): Sessi
   );
 }
 
-async function captureAttempt(options: CaptureOptions): Promise<CapturedFamily> {
+async function captureAttempt(
+  options: CaptureOptions,
+  allowPartialChildRaces: boolean,
+): Promise<CapturedFamily> {
   const before = await listSessions(options);
   const root = selectRoot(before, { sessionKey: options.sessionKey, sessionId: options.sessionId });
   const rowByKey = new Map(before.sessions.map((row) => [row.key, row]));
@@ -127,7 +142,20 @@ async function captureAttempt(options: CaptureOptions): Promise<CapturedFamily> 
     if (!item || nodes.has(item.row.key)) continue;
     if (item.depth > maxDepth)
       throw new Error(`Session family exceeds depth limit ${String(maxDepth)}`);
-    const node = await exportNode(options, item.row, nodes.size + 1);
+    let node: SourceNode;
+    try {
+      node = await exportNode(options, item.row, nodes.size + 1);
+    } catch (error) {
+      if (error instanceof CaptureRaceError && item.parent && allowPartialChildRaces) {
+        diagnostics.push({
+          code: "child-export-unavailable",
+          message: error.message,
+          nodeKey: item.parent.parentKey,
+        });
+        continue;
+      }
+      throw error;
+    }
     if (item.parent) {
       node.parentKey = item.parent.parentKey;
       node.relationship = item.parent;
@@ -195,7 +223,15 @@ export async function captureOpenClawFamily(options: CaptureOptions): Promise<Ca
     const attemptRoot = join(options.stagingRoot, `attempt-${String(attempt + 1)}`);
     await mkdir(attemptRoot, { recursive: false, mode: 0o700 });
     await chmod(attemptRoot, 0o700);
-    last = await captureAttempt({ ...options, stagingRoot: attemptRoot });
+    try {
+      last = await captureAttempt(
+        { ...options, stagingRoot: attemptRoot },
+        attempt === retries - 1,
+      );
+    } catch (error) {
+      if (error instanceof CaptureRaceError && attempt < retries - 1) continue;
+      throw error;
+    }
     if (last.stable) return last;
   }
   if (!last) throw new Error("OpenClaw capture did not run");

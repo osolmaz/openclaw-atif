@@ -140,14 +140,35 @@ function argumentsFrom(value: unknown): { arguments: JsonObject; extra?: JsonObj
   return { arguments: {}, extra: { arguments_status: "unavailable" } };
 }
 
-function callsByAssistantEntry(events: readonly TrajectoryEvent[]): Map<string, AtifToolCall[]> {
+function callsByAssistantEntry(
+  events: readonly TrajectoryEvent[],
+  node: NormalizedNode,
+  state: StepState,
+): Map<string, AtifToolCall[]> {
   const values = new Map<string, AtifToolCall[]>();
   for (const event of events) {
     if (event.type !== "tool.call") continue;
     const owner = readNonBlankString(event.data?.assistantEntryId) ?? event.entryId;
-    if (!owner) continue;
-    const id = readString(event.data?.toolCallId) ?? "";
-    const name = readString(event.data?.name) ?? "";
+    if (!owner) {
+      state.diagnostics.push({
+        code: "tool-call-owner-unavailable",
+        message: "A tool call has no owning assistant entry",
+        nodeKey: node.key,
+        eventId: event.entryId,
+      });
+      continue;
+    }
+    const id = readNonBlankString(event.data?.toolCallId);
+    const name = readNonBlankString(event.data?.name);
+    if (!id || !name) {
+      state.diagnostics.push({
+        code: "tool-call-identity-unavailable",
+        message: "A tool call is missing its call ID or function name",
+        nodeKey: node.key,
+        eventId: event.entryId,
+      });
+      continue;
+    }
     const converted = argumentsFrom(event.data?.arguments);
     const call: AtifToolCall = {
       tool_call_id: id,
@@ -461,7 +482,6 @@ function buildNode(params: {
     });
     refsByCall.set(relationship.spawn.toolCallId, refs);
   }
-  const calls = callsByAssistantEntry(params.node.transcriptEvents);
   const agent = agentForNode(params.node, params.family.openclawVersion);
   const state: StepState = {
     steps: [],
@@ -469,6 +489,7 @@ function buildNode(params: {
     diagnostics: [],
     ...(agent.model_name ? { modelName: agent.model_name } : {}),
   };
+  const calls = callsByAssistantEntry(params.node.transcriptEvents, params.node, state);
   const events = [
     ...params.node.runtimeEvents,
     ...params.node.transcriptEvents,

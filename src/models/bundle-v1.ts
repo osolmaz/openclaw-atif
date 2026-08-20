@@ -69,6 +69,7 @@ export type BundleManifest = z.infer<typeof bundleManifestSchema>;
 export interface OpenClawBundleV1 {
   directory: string;
   manifest: BundleManifest;
+  observedSessionKey?: string;
   events: TrajectoryEvent[];
   sessionBranch: Record<string, unknown>;
   supplemental: ReadonlyMap<string, unknown>;

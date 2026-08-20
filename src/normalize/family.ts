@@ -20,6 +20,8 @@ const KNOWN_TRANSCRIPT_EVENTS = new Set([
   "session.label",
   "session.info",
 ]);
+const VOLATILE_GENERATED_FILES = ["metadata.json", "artifacts.json", "prompts.json"] as const;
+
 const KNOWN_RUNTIME_EVENTS = new Set([
   "session.started",
   "trace.metadata",
@@ -31,16 +33,28 @@ const KNOWN_RUNTIME_EVENTS = new Set([
   "session.ended",
 ]);
 
+function semanticHash(value: unknown): string {
+  return createHash("sha256").update(stableCompactStringify(value)).digest("hex");
+}
+
+function withoutGeneratedAt(value: unknown): unknown {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>).filter(([name]) => name !== "generatedAt"),
+  );
+}
+
 function deterministicSourceHashes(bundle: OpenClawBundleV1): Record<string, string> {
+  const volatileFiles = new Set<string>(["manifest.json", ...VOLATILE_GENERATED_FILES]);
   const hashes = Object.fromEntries(
-    Object.entries(bundle.sourceHashes).filter(([name]) => name !== "manifest.json"),
+    Object.entries(bundle.sourceHashes).filter(([name]) => !volatileFiles.has(name)),
   );
-  const stableManifest = Object.fromEntries(
-    Object.entries(bundle.manifest).filter(([name]) => name !== "generatedAt"),
-  );
-  hashes["manifest.semantic-v1"] = createHash("sha256")
-    .update(stableCompactStringify(stableManifest))
-    .digest("hex");
+  hashes["manifest.semantic-v1"] = semanticHash(withoutGeneratedAt(bundle.manifest));
+  for (const name of VOLATILE_GENERATED_FILES) {
+    const value = bundle.supplemental.get(name);
+    if (value !== undefined)
+      hashes[`${name}#semantic-v1`] = semanticHash(withoutGeneratedAt(value));
+  }
   return hashes;
 }
 
