@@ -1,0 +1,232 @@
+{
+  "agent": {
+    "extra": {
+      "source_bundle": "openclaw-trajectory-v1",
+      "source_redacted": true,
+      "trace_metadata": {
+        "harness": {
+          "version": "2026.7.1-2"
+        },
+        "model": {
+          "name": "gpt-test",
+          "provider": "openai"
+        }
+      }
+    },
+    "model_name": "openai/gpt-test",
+    "name": "openclaw",
+    "tool_definitions": [
+      {
+        "function": {
+          "name": "sessions_spawn",
+          "parameters": {
+            "type": "object"
+          }
+        },
+        "type": "function"
+      }
+    ],
+    "version": "2026.7.1-2"
+  },
+  "extra": {
+    "openclaw": {
+      "bundle_warning_codes": [],
+      "leaf_id": "leaf-1",
+      "relationships": [],
+      "runtime": {
+        "event_type_counts": {
+          "context.compiled": 1,
+          "trace.metadata": 1
+        },
+        "terminal_events": []
+      },
+      "session_id": "sqlite-root-session",
+      "session_key": "agent:main:main",
+      "source_redacted": true,
+      "wrapper_only": false
+    }
+  },
+  "final_metrics": {
+    "extra": {
+      "scope": "own-trajectory-only"
+    },
+    "total_cached_tokens": 2,
+    "total_completion_tokens": 4,
+    "total_cost_usd": 0.01,
+    "total_prompt_tokens": 12,
+    "total_steps": 3
+  },
+  "schema_version": "ATIF-v1.7",
+  "session_id": "sqlite-root-session",
+  "steps": [
+    {
+      "extra": {
+        "openclaw": {
+          "data": {
+            "systemPrompt": "Synthetic system prompt",
+            "tools": [
+              {
+                "function": {
+                  "name": "sessions_spawn",
+                  "parameters": {
+                    "type": "object"
+                  }
+                },
+                "type": "function"
+              }
+            ]
+          },
+          "entry_id": null,
+          "event_type": "context.compiled"
+        }
+      },
+      "message": "Synthetic system prompt",
+      "source": "system",
+      "step_id": 1,
+      "timestamp": "2026-01-01T00:00:02.000Z"
+    },
+    {
+      "extra": {
+        "openclaw": {
+          "entry_id": "u",
+          "event_type": "user.message"
+        }
+      },
+      "message": "Delegate this task.",
+      "source": "user",
+      "step_id": 2,
+      "timestamp": "2026-01-01T00:00:03.000Z"
+    },
+    {
+      "extra": {
+        "openclaw": {
+          "entry_id": "a",
+          "error_message": null,
+          "stop_reason": null
+        }
+      },
+      "llm_call_count": 1,
+      "message": "Starting a child.",
+      "metrics": {
+        "cached_tokens": 2,
+        "completion_tokens": 4,
+        "cost_usd": 0.01,
+        "prompt_tokens": 12
+      },
+      "model_name": "openai/gpt-test",
+      "observation": {
+        "results": [
+          {
+            "content": "{\"childSessionKey\":\"agent:main:acp:child\",\"status\":\"accepted\"}",
+            "extra": {
+              "openclaw": {
+                "entry_id": "r",
+                "is_error": false,
+                "tool_name": "sessions_spawn"
+              }
+            },
+            "source_call_id": "spawn-1"
+          }
+        ]
+      },
+      "source": "agent",
+      "step_id": 3,
+      "timestamp": "2026-01-01T00:00:04.000Z",
+      "tool_calls": [
+        {
+          "arguments": {
+            "task": "child work"
+          },
+          "function_name": "sessions_spawn",
+          "tool_call_id": "spawn-1"
+        }
+      ]
+    }
+  ],
+  "subagent_trajectories": [
+    {
+      "agent": {
+        "extra": {
+          "source_bundle": "openclaw-trajectory-v1",
+          "source_redacted": true,
+          "trace_metadata": {
+            "harness": {
+              "version": "2026.7.1-2"
+            },
+            "model": {
+              "name": "gpt-test",
+              "provider": "openai"
+            }
+          }
+        },
+        "model_name": "openai/gpt-test",
+        "name": "openclaw",
+        "version": "2026.7.1-2"
+      },
+      "extra": {
+        "openclaw": {
+          "bundle_warning_codes": [],
+          "leaf_id": "leaf-1",
+          "relationships": [],
+          "runtime": {
+            "event_type_counts": {
+              "trace.metadata": 1
+            },
+            "terminal_events": []
+          },
+          "session_id": "sqlite-child-session",
+          "session_key": "agent:main:acp:child",
+          "source_redacted": true,
+          "wrapper_only": true
+        }
+      },
+      "final_metrics": {
+        "extra": {
+          "scope": "own-trajectory-only"
+        },
+        "total_completion_tokens": 1,
+        "total_cost_usd": 0.002,
+        "total_prompt_tokens": 3,
+        "total_steps": 2
+      },
+      "schema_version": "ATIF-v1.7",
+      "session_id": "sqlite-child-session",
+      "steps": [
+        {
+          "extra": {
+            "openclaw": {
+              "entry_id": "u",
+              "event_type": "user.message"
+            }
+          },
+          "message": "Do the delegated work.",
+          "source": "user",
+          "step_id": 1,
+          "timestamp": "2026-01-01T00:00:02.000Z"
+        },
+        {
+          "extra": {
+            "openclaw": {
+              "entry_id": "a",
+              "error_message": null,
+              "stop_reason": null
+            }
+          },
+          "llm_call_count": 1,
+          "message": "Done.",
+          "metrics": {
+            "completion_tokens": 1,
+            "cost_usd": 0.002,
+            "prompt_tokens": 3
+          },
+          "model_name": "openai/gpt-test",
+          "source": "agent",
+          "step_id": 2,
+          "timestamp": "2026-01-01T00:00:03.000Z"
+        }
+      ],
+      "trajectory_id": "openclaw-dd926c52c504e21909f21dd192b1e053"
+    }
+  ],
+  "trajectory_id": "openclaw-8a2f9f9c5c0d80c4eea0da49a0229953"
+}

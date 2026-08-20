@@ -1,0 +1,73 @@
+{
+  "diagnostics": [],
+  "familyMetrics": {
+    "cachedTokens": 2,
+    "completionTokens": 5,
+    "costUsd": 0.012,
+    "promptTokens": 15,
+    "steps": 5
+  },
+  "nodes": [
+    {
+      "branchCoverage": "selected-active-leaf",
+      "diagnostics": [],
+      "generationCoverage": "public-exported-generation",
+      "leafId": "leaf-1",
+      "sessionId": "legacy-jsonl-root-session",
+      "sessionKey": "agent:main:main",
+      "sourceHashes": {
+        "events.jsonl": "a2a5e7c1183e740953948fb43546968c80c930b24cb9cbe9760439a00b6c4ace",
+        "manifest.json": "fb00d2c25a3a5125f7a823054edfd8c65c014704d0d59f89164f4c3b6cf535b7",
+        "session-branch.json": "7ad88626ccb68fbee8098c52bfb3234031ca2e93a3a47af6e5383c1f63162b22"
+      }
+    },
+    {
+      "branchCoverage": "selected-active-leaf",
+      "diagnostics": [],
+      "generationCoverage": "public-exported-generation",
+      "leafId": "leaf-1",
+      "sessionId": "legacy-jsonl-child-session",
+      "sessionKey": "agent:main:subagent:child",
+      "sourceHashes": {
+        "events.jsonl": "4ab9a51930a8ab1e92bb1e4f5d075ca1bc4ebf1c8285663abc1a1df0ee46a05e",
+        "manifest.json": "2d7b80cda6a848cf03284c744cff3bb98404bfc860d6e549a29a130debaac552",
+        "session-branch.json": "e07054f8c9a1a6074c4d3226ac544dc71107794f1b0d1561c7d7c9d6c77a05b0"
+      }
+    }
+  ],
+  "output": {
+    "trajectorySha256": "06017b29a6aaa8742d4c77f21116102c0f546cdd08a72c7315769682674b4fb4"
+  },
+  "relationships": [
+    {
+      "childKey": "agent:main:subagent:child",
+      "kind": "native-subagent",
+      "listing": true,
+      "parentKey": "agent:main:main",
+      "referenceStatus": "resolved",
+      "toolCallId": "spawn-1"
+    }
+  ],
+  "root": {
+    "sessionId": "legacy-jsonl-root-session",
+    "sessionKey": "agent:main:main",
+    "trajectoryId": "openclaw-dd124375d9fec5e0b5f458b73258c4a1"
+  },
+  "schema": "openclaw-atif-receipt-v1",
+  "source": {
+    "bundleSchema": "openclaw-trajectory",
+    "bundleSchemaVersion": 1,
+    "listingAfterHash": "c709a7e711670cdaf1545c027236b3b2a69fb7fa8b9375125b7da46346fd480b",
+    "listingBeforeHash": "c709a7e711670cdaf1545c027236b3b2a69fb7fa8b9375125b7da46346fd480b",
+    "openclawVersion": "2026.7.1-2",
+    "profile": "openclaw-support-v1",
+    "redacted": true,
+    "stable": true
+  },
+  "status": "complete",
+  "validation": {
+    "harbor": "not-run-runtime",
+    "harborConformanceCommit": "c3ce0c60bbd2fd1888b327efcc880dbd86d8b7cf",
+    "localAtif": true
+  }
+}

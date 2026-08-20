@@ -1,0 +1,81 @@
+import { chmod, mkdir, mkdtemp, readFile, symlink, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { describe, expect, it } from "vitest";
+import { prepareLegacyMigrationCopy } from "../src/legacy/migrate-copy.js";
+
+describe("legacy migration-on-copy", () => {
+  it("runs the targeted migration sequence without changing source", async () => {
+    const root = await mkdtemp(join(tmpdir(), "openclaw-atif-legacy-"));
+    const source = join(root, "source");
+    const staging = join(root, "staging");
+    await mkdir(join(source, "agents", "main", "sessions"), { recursive: true });
+    await mkdir(staging);
+    const sourceFile = join(source, "agents", "main", "sessions", "sessions.json");
+    await writeFile(sourceFile, '{"agent:main:main":{"sessionId":"legacy"}}\n');
+    const executable = join(root, "openclaw.mjs");
+    await writeFile(
+      executable,
+      '#!/usr/bin/env node\nif (process.argv.includes("--help")) console.log("--session-sqlite"); else console.log(JSON.stringify({ok:true,mode:process.argv[3]}))\n',
+    );
+    await chmod(executable, 0o700);
+    const result = await prepareLegacyMigrationCopy({
+      sourceStateDir: source,
+      stagingRoot: staging,
+      executable,
+    });
+    expect(result.receipt.commands.map((item) => item.mode)).toEqual([
+      "inspect",
+      "dry-run",
+      "import",
+      "validate",
+    ]);
+    expect(result.receipt.sourceFingerprintBefore).toBe(result.receipt.sourceFingerprintAfter);
+    expect(await readFile(sourceFile, "utf8")).toContain("legacy");
+    expect(
+      await readFile(join(result.stateDir, "agents", "main", "sessions", "sessions.json"), "utf8"),
+    ).toContain("legacy");
+  });
+
+  it("falls back to non-interactive repair when targeted migration is unavailable", async () => {
+    const root = await mkdtemp(join(tmpdir(), "openclaw-atif-legacy-"));
+    const source = join(root, "source");
+    const staging = join(root, "staging");
+    await mkdir(source);
+    await mkdir(staging);
+    await writeFile(join(source, "sessions.json"), "{}\n");
+    const executable = join(root, "openclaw.mjs");
+    await writeFile(
+      executable,
+      '#!/usr/bin/env node\nconst a=process.argv.slice(2); if(a[0]==="doctor"&&a.includes("--help")) console.log("doctor help"); else if(a[0]==="sessions") console.log(JSON.stringify({sessions:[]})); else console.log("fixed");\n',
+    );
+    await chmod(executable, 0o700);
+    const result = await prepareLegacyMigrationCopy({
+      sourceStateDir: source,
+      stagingRoot: staging,
+      executable,
+    });
+    expect(result.receipt.commands.map((item) => item.mode)).toEqual([
+      "fix",
+      "sessions-list-verify",
+    ]);
+  });
+
+  it("rejects source trees with symlinks", async () => {
+    const root = await mkdtemp(join(tmpdir(), "openclaw-atif-legacy-"));
+    const source = join(root, "source");
+    const staging = join(root, "staging");
+    await mkdir(source);
+    await mkdir(staging);
+    const external = join(root, "external");
+    await writeFile(external, "secret");
+    await symlink(external, join(source, "linked"));
+    await expect(
+      prepareLegacyMigrationCopy({
+        sourceStateDir: source,
+        stagingRoot: staging,
+        executable: process.execPath,
+      }),
+    ).rejects.toThrow("symlink");
+  });
+});

@@ -1,0 +1,85 @@
+{
+  "diagnostics": [
+    {
+      "code": "subagent-reference-unresolved",
+      "count": 2,
+      "message": "Listing lineage proves a child, but no exact sessions_spawn tool result is available",
+      "nodeKey": "agent:main:main"
+    }
+  ],
+  "familyMetrics": {
+    "cachedTokens": 2,
+    "completionTokens": 5,
+    "costUsd": 0.012,
+    "promptTokens": 15,
+    "steps": 5
+  },
+  "nodes": [
+    {
+      "branchCoverage": "selected-active-leaf",
+      "diagnostics": [],
+      "generationCoverage": "public-exported-generation",
+      "leafId": "leaf-1",
+      "sessionId": "sqlite-child-session",
+      "sessionKey": "agent:main:acp:child",
+      "sourceHashes": {
+        "events.jsonl": "a56c9e82303f69023b5fd7080fc2475d556480f279c93269795eea22c793a431",
+        "manifest.json": "8752b91c2b0b3771a2e2600e84362b2717d582e8b513ecd2d27809c9a2453521",
+        "session-branch.json": "aace7ead09b3e27a63f0b7d1c6e7690b303e1cbbf25b4d7b66ffee963ccb1ec8"
+      }
+    },
+    {
+      "branchCoverage": "selected-active-leaf",
+      "diagnostics": [
+        {
+          "code": "subagent-reference-unresolved",
+          "message": "Listing lineage proves a child, but no exact sessions_spawn tool result is available",
+          "nodeKey": "agent:main:main"
+        }
+      ],
+      "generationCoverage": "public-exported-generation",
+      "leafId": "leaf-1",
+      "sessionId": "sqlite-root-session",
+      "sessionKey": "agent:main:main",
+      "sourceHashes": {
+        "events.jsonl": "69f38f64f7303608ed472c1bd93148e1fb256a5e5535568de58d60b75a753dd0",
+        "manifest.json": "279d29d273c5ccbfd58066bf53b6def3b1bfdc7d184ca33879bda8d3fe370e7b",
+        "session-branch.json": "18e60339aba54562c089c58717b3a84bfd650db4d2a7ad4097e7c7a9627eb5a3"
+      }
+    }
+  ],
+  "output": {
+    "trajectorySha256": "b0be877f15bc5449e200e43dfdaec816bdbdd7c36431b56c4d8359198b776622"
+  },
+  "relationships": [
+    {
+      "childKey": "agent:main:acp:child",
+      "kind": "acp-child",
+      "listing": true,
+      "parentKey": "agent:main:main",
+      "referenceStatus": "unresolved"
+    }
+  ],
+  "root": {
+    "sessionId": "sqlite-root-session",
+    "sessionKey": "agent:main:main",
+    "trajectoryId": "openclaw-8a2f9f9c5c0d80c4eea0da49a0229953"
+  },
+  "schema": "openclaw-atif-receipt-v1",
+  "source": {
+    "bundleSchema": "openclaw-trajectory",
+    "bundleSchemaVersion": 1,
+    "listingAfterHash": "b4055c2017a26159e837ee5f19c8698389d23a859017a24198acd6faaae5c61d",
+    "listingBeforeHash": "b4055c2017a26159e837ee5f19c8698389d23a859017a24198acd6faaae5c61d",
+    "openclawVersion": "2026.8.1-beta.2",
+    "profile": "openclaw-support-v1",
+    "redacted": true,
+    "stable": true
+  },
+  "status": "partial",
+  "validation": {
+    "harbor": "not-run-runtime",
+    "harborConformanceCommit": "c3ce0c60bbd2fd1888b327efcc880dbd86d8b7cf",
+    "localAtif": true
+  }
+}
