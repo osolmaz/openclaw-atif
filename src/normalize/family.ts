@@ -1,0 +1,140 @@
+/* eslint-disable complexity -- Completeness classification enumerates source cases. */
+import { type Diagnostic, deduplicateDiagnostics } from "../diagnostics.js";
+import type { CapturedFamily, NormalizedNode, SessionFamilySnapshot } from "../models/family.js";
+
+const KNOWN_TRANSCRIPT_EVENTS = new Set([
+  "user.message",
+  "assistant.message",
+  "tool.call",
+  "tool.result",
+  "session.compaction",
+  "session.reset",
+  "session.branch_summary",
+  "session.custom",
+  "session.custom_message",
+  "session.thinking_level_change",
+  "session.model_change",
+  "session.label",
+  "session.info",
+]);
+const KNOWN_RUNTIME_EVENTS = new Set([
+  "session.started",
+  "trace.metadata",
+  "context.compiled",
+  "prompt.submitted",
+  "model.fallback_step",
+  "model.completed",
+  "trace.artifacts",
+  "session.ended",
+]);
+
+export function normalizeFamily(captured: CapturedFamily): SessionFamilySnapshot {
+  const relationshipsByParent = new Map<string, typeof captured.relationships>();
+  for (const relationship of captured.relationships) {
+    const current = relationshipsByParent.get(relationship.parentKey) ?? [];
+    current.push(relationship);
+    relationshipsByParent.set(relationship.parentKey, current);
+  }
+  const nodes = new Map<string, NormalizedNode>();
+  const familyDiagnostics: Diagnostic[] = [...captured.diagnostics];
+  for (const [key, source] of captured.nodes) {
+    const diagnostics: Diagnostic[] = [];
+    const warningCodes = (source.bundle.manifest.warnings ?? []).map((warning) => warning.code);
+    for (const warning of source.bundle.manifest.warnings ?? []) {
+      diagnostics.push({
+        code: `openclaw-${warning.code}`,
+        message: warning.message,
+        nodeKey: key,
+        count: warning.count,
+      });
+    }
+    if (source.bundle.manifest.runtimeEventCount === 0) {
+      diagnostics.push({
+        code: "runtime-capture-unavailable",
+        message: "The public bundle contains no runtime events",
+        nodeKey: key,
+      });
+    }
+    if (source.bundle.events.some((event) => event.ts === "1970-01-01T00:00:00.000Z")) {
+      diagnostics.push({
+        code: "source-fallback-timestamp",
+        message: "OpenClaw supplied an epoch fallback timestamp",
+        nodeKey: key,
+      });
+    }
+    for (const event of source.bundle.events) {
+      const known =
+        event.source === "transcript"
+          ? KNOWN_TRANSCRIPT_EVENTS.has(event.type)
+          : event.source === "runtime"
+            ? KNOWN_RUNTIME_EVENTS.has(event.type)
+            : false;
+      if (!known) {
+        diagnostics.push({
+          code: `unsupported-${event.source}-event`,
+          message: `The public bundle contains unsupported event type ${event.type}`,
+          nodeKey: key,
+          eventId: event.entryId,
+        });
+      }
+    }
+    const childRelationships = [...(relationshipsByParent.get(key) ?? [])].sort((left, right) =>
+      left.childKey.localeCompare(right.childKey),
+    );
+    for (const relationship of childRelationships) {
+      if (!["native-subagent", "acp-child"].includes(relationship.kind)) {
+        diagnostics.push({
+          code: "relationship-not-represented-in-atif",
+          message: `ATIF-v1.7 has no recursive embedding contract for ${relationship.kind}`,
+          nodeKey: key,
+        });
+      }
+      if (!relationship.spawn && ["native-subagent", "acp-child"].includes(relationship.kind)) {
+        diagnostics.push({
+          code: "subagent-reference-unresolved",
+          message:
+            "Listing lineage proves a child, but no exact sessions_spawn tool result is available",
+          nodeKey: key,
+        });
+      }
+    }
+    nodes.set(key, {
+      key,
+      sessionId: source.sessionId,
+      leafId: source.bundle.manifest.leafId,
+      row: source.row,
+      transcriptEvents: source.bundle.events.filter((event) => event.source === "transcript"),
+      runtimeEvents: source.bundle.events.filter((event) => event.source === "runtime"),
+      exportEvents: source.bundle.events.filter((event) => event.source === "export"),
+      childRelationships,
+      bundleWarnings: warningCodes,
+      sourceHashes: source.bundle.sourceHashes,
+      diagnostics: deduplicateDiagnostics(diagnostics),
+    });
+    familyDiagnostics.push(...diagnostics);
+  }
+  if (!captured.stable) {
+    familyDiagnostics.push({
+      code: "family-not-stable",
+      message: "The session family changed during capture",
+    });
+  }
+  return {
+    rootKey: captured.rootKey,
+    openclawVersion: captured.openclawVersion,
+    ...(captured.openclawExecutableSha256
+      ? { openclawExecutableSha256: captured.openclawExecutableSha256 }
+      : {}),
+    profile: captured.profile,
+    nodes,
+    relationships: [...captured.relationships].sort((left, right) =>
+      `${left.parentKey}\u0000${left.childKey}`.localeCompare(
+        `${right.parentKey}\u0000${right.childKey}`,
+      ),
+    ),
+    diagnostics: deduplicateDiagnostics(familyDiagnostics),
+    stable: captured.stable,
+    listingBeforeHash: captured.listingBeforeHash,
+    listingAfterHash: captured.listingAfterHash,
+  };
+}

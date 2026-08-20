@@ -1,0 +1,55 @@
+import { describe, expect, it } from "vitest";
+import { type AtifTrajectory, validateAtifTrajectory } from "../src/atif/schema.js";
+
+function trajectory(): AtifTrajectory {
+  return {
+    schema_version: "ATIF-v1.7",
+    session_id: "root",
+    trajectory_id: "root-id",
+    agent: { name: "openclaw", version: "test" },
+    steps: [
+      {
+        step_id: 1,
+        source: "agent",
+        message: "spawn",
+        tool_calls: [{ tool_call_id: "call", function_name: "sessions_spawn", arguments: {} }],
+        observation: {
+          results: [
+            {
+              source_call_id: "call",
+              subagent_trajectory_ref: [{ trajectory_id: "child-id", session_id: "child" }],
+            },
+          ],
+        },
+      },
+    ],
+    subagent_trajectories: [
+      {
+        schema_version: "ATIF-v1.7",
+        session_id: "child",
+        trajectory_id: "child-id",
+        agent: { name: "openclaw", version: "test" },
+        steps: [{ step_id: 1, source: "user", message: "work" }],
+      },
+    ],
+  };
+}
+
+describe("ATIF schema", () => {
+  it("accepts recursive ATIF-v1.7 trajectories", () => {
+    expect(validateAtifTrajectory(trajectory()).subagent_trajectories).toHaveLength(1);
+  });
+
+  it("rejects invalid tool-result references", () => {
+    const value = trajectory();
+    const result = value.steps[0]?.observation?.results[0];
+    if (result) result.source_call_id = "missing";
+    expect(() => validateAtifTrajectory(value)).toThrow("Observation");
+  });
+
+  it("rejects embedded children without trajectory IDs", () => {
+    const value = trajectory();
+    if (value.subagent_trajectories?.[0]) delete value.subagent_trajectories[0].trajectory_id;
+    expect(() => validateAtifTrajectory(value)).toThrow("trajectory_id");
+  });
+});

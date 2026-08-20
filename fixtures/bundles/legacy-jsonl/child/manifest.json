@@ -1,0 +1,16 @@
+{
+  "traceSchema": "openclaw-trajectory",
+  "schemaVersion": 1,
+  "generatedAt": "2026-01-01T00:00:00.000Z",
+  "traceId": "legacy-jsonl-child-session",
+  "sessionId": "legacy-jsonl-child-session",
+  "sessionKey": "agent:main:subagent:child",
+  "workspaceDir": "$WORKSPACE_DIR",
+  "leafId": "leaf-1",
+  "eventCount": 3,
+  "runtimeEventCount": 1,
+  "transcriptEventCount": 2,
+  "sourceFiles": {
+    "session": "agent:main:subagent:child"
+  }
+}

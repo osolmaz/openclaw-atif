@@ -1,0 +1,17 @@
+{
+  "schema": "openclaw-atif-bundle-graph-v1",
+  "rootKey": "agent:main:main",
+  "openclawVersion": "2026.8.1-beta.2",
+  "nodes": [
+    {
+      "sessionKey": "agent:main:main",
+      "bundleDir": "root"
+    },
+    {
+      "sessionKey": "agent:main:acp:child",
+      "bundleDir": "child",
+      "parentKey": "agent:main:main",
+      "relationshipKind": "acp-child"
+    }
+  ]
+}

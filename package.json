@@ -1,0 +1,81 @@
+{
+  "name": "openclaw-atif",
+  "version": "0.1.0",
+  "description": "Export OpenClaw session families as Harbor ATIF trajectories",
+  "type": "module",
+  "license": "MIT",
+  "author": "Onur Solmaz",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/osolmaz/openclaw-atif.git"
+  },
+  "homepage": "https://github.com/osolmaz/openclaw-atif#readme",
+  "bugs": "https://github.com/osolmaz/openclaw-atif/issues",
+  "keywords": [
+    "openclaw",
+    "atif",
+    "harbor",
+    "trajectory"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "openclaw-atif": "./dist/cli-main.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "docs",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run coverage && npm run dry",
+    "coverage": "vitest run --coverage --config vitest.config.ts",
+    "dry": "slophammer-ts dry .",
+    "format": "biome check --write .",
+    "format:check": "biome check .",
+    "golden:update": "npm run build && node scripts/generate-goldens.mjs",
+    "lint": "eslint . --config eslint.config.mjs",
+    "mutate": "stryker run stryker.config.mjs",
+    "prepare": "npm run build",
+    "pretest": "npm run build",
+    "slophammer": "slophammer-ts check . --execute",
+    "smoke:cli": "bash scripts/smoke-cli.sh",
+    "smoke:openclaw": "bash scripts/smoke-openclaw.sh",
+    "test": "vitest run",
+    "test:golden": "vitest run test/golden.test.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "validate:atif": "vitest run test/schema.test.ts",
+    "validate:harbor": "bash scripts/validate-harbor.sh"
+  },
+  "dependencies": {
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.9",
+    "@eslint/js": "10.0.1",
+    "@stryker-mutator/core": "10.0.0",
+    "@stryker-mutator/typescript-checker": "10.0.0",
+    "@stryker-mutator/vitest-runner": "10.0.0",
+    "@types/node": "^22.0.0",
+    "@vitest/coverage-v8": "4.1.11",
+    "eslint": "10.8.1",
+    "slophammer-ts": "0.4.1",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.67.0",
+    "vitest": "4.1.11"
+  },
+  "overrides": {
+    "qs": "6.15.3"
+  }
+}

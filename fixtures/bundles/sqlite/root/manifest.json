@@ -1,0 +1,16 @@
+{
+  "traceSchema": "openclaw-trajectory",
+  "schemaVersion": 1,
+  "generatedAt": "2026-01-01T00:00:00.000Z",
+  "traceId": "sqlite-root-session",
+  "sessionId": "sqlite-root-session",
+  "sessionKey": "agent:main:main",
+  "workspaceDir": "$WORKSPACE_DIR",
+  "leafId": "leaf-1",
+  "eventCount": 6,
+  "runtimeEventCount": 2,
+  "transcriptEventCount": 4,
+  "sourceFiles": {
+    "session": "agent:main:main"
+  }
+}
