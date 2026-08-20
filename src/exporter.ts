@@ -146,6 +146,7 @@ export async function exportOpenClawFamily(options: ExportOptions): Promise<Expo
       family,
       trajectory: mapped.trajectory,
       diagnostics: mapped.diagnostics,
+      nodeMetrics: mapped.nodeMetrics,
       legacyMigration,
     });
     result = await commitExport({
@@ -167,7 +168,7 @@ export async function exportOpenClawFamily(options: ExportOptions): Promise<Expo
       cleanupError = error;
     }
   }
-  if (!options.keepSourceBundles) {
+  if (!options.keepSourceBundles || !result) {
     try {
       await rm(stagingRoot, { recursive: true, force: true });
     } catch (error) {
@@ -195,6 +196,7 @@ export async function convertOpenClawBundles(options: {
     family,
     trajectory: mapped.trajectory,
     diagnostics: mapped.diagnostics,
+    nodeMetrics: mapped.nodeMetrics,
   });
   return commitExport({
     output: options.output,

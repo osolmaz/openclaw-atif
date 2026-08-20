@@ -20,7 +20,7 @@ describe("legacy migration-on-copy", () => {
     const executable = join(root, "openclaw.mjs");
     await writeFile(
       executable,
-      '#!/usr/bin/env node\nif (process.argv.includes("--help")) console.log("--session-sqlite"); else console.log(JSON.stringify({ok:true,mode:process.argv[3]}))\n',
+      '#!/usr/bin/env node\nif (process.argv.includes("--help")) console.log("--session-sqlite"); else console.log(JSON.stringify({ok:true,mode:process.argv[3],generatedAt:new Date().toISOString(),stateDir:process.env.OPENCLAW_STATE_DIR,runId:Math.random()}))\n',
     );
     await chmod(executable, 0o700);
     const result = await prepareLegacyMigrationCopy({
@@ -45,6 +45,14 @@ describe("legacy migration-on-copy", () => {
     expect(copiedConfig.session.store).toBe(
       join(result.stateDir, "agents", "{agentId}", "sessions.json"),
     );
+    const secondStaging = join(root, "staging-second");
+    await mkdir(secondStaging);
+    const repeated = await prepareLegacyMigrationCopy({
+      sourceStateDir: source,
+      stagingRoot: secondStaging,
+      executable,
+    });
+    expect(repeated.receipt.commands).toEqual(result.receipt.commands);
   });
 
   it("falls back to non-interactive repair when targeted migration is unavailable", async () => {

@@ -33,6 +33,7 @@ import {
 export interface MappingResult {
   trajectory: AtifTrajectory;
   diagnostics: Diagnostic[];
+  nodeMetrics: ReadonlyMap<string, AtifFinalMetrics>;
 }
 
 type StepState = {
@@ -259,6 +260,10 @@ function resultContent(
   return Array.isArray(content) || content !== "" ? content : null;
 }
 
+function spawnResultKey(callId: string, eventId: string): string {
+  return `${callId}\u0000${eventId}`;
+}
+
 function resultStep(
   event: TrajectoryEvent,
   node: NormalizedNode,
@@ -280,7 +285,8 @@ function resultStep(
       },
     },
   };
-  const refs = callId ? refsByCall.get(callId) : undefined;
+  const refs =
+    callId && event.entryId ? refsByCall.get(spawnResultKey(callId, event.entryId)) : undefined;
   if (refs && refs.length > 0) result.subagent_trajectory_ref = refs;
   if (owner) {
     owner.observation ??= { results: [] };
@@ -450,6 +456,7 @@ function buildNode(params: {
   node: NormalizedNode;
   visiting: Set<string>;
   diagnostics: Diagnostic[];
+  nodeMetrics: Map<string, AtifFinalMetrics>;
 }): AtifTrajectory {
   if (params.visiting.has(params.node.key))
     throw new Error(`Session family contains a cycle at ${params.node.key}`);
@@ -471,6 +478,7 @@ function buildNode(params: {
       node: child,
       visiting: params.visiting,
       diagnostics: params.diagnostics,
+      nodeMetrics: params.nodeMetrics,
     }),
   );
   const childTrajectoryByKey = new Map(
@@ -479,14 +487,15 @@ function buildNode(params: {
   const refsByCall = new Map<string, AtifSubagentRefLike[]>();
   for (const relationship of params.node.childRelationships) {
     const child = childTrajectoryByKey.get(relationship.childKey);
-    if (!relationship.spawn || !child?.trajectory_id) continue;
-    const refs = refsByCall.get(relationship.spawn.toolCallId) ?? [];
+    if (!relationship.spawn?.eventId || !child?.trajectory_id) continue;
+    const key = spawnResultKey(relationship.spawn.toolCallId, relationship.spawn.eventId);
+    const refs = refsByCall.get(key) ?? [];
     refs.push({
       trajectory_id: child.trajectory_id,
       session_id: child.session_id,
       extra: { relationship_kind: relationship.kind },
     });
-    refsByCall.set(relationship.spawn.toolCallId, refs);
+    refsByCall.set(key, refs);
   }
   const agent = agentForNode(params.node, params.family.openclawVersion);
   const state: StepState = {
@@ -537,6 +546,8 @@ function buildNode(params: {
   }
   params.diagnostics.push(...state.diagnostics);
   params.visiting.delete(params.node.key);
+  const metrics = finalMetrics(state.steps);
+  params.nodeMetrics.set(params.node.key, metrics);
   const otherRelationships = params.node.childRelationships.filter(
     (relationship) => !["native-subagent", "acp-child"].includes(relationship.kind),
   );
@@ -551,7 +562,7 @@ function buildNode(params: {
     }),
     agent,
     steps: state.steps,
-    final_metrics: finalMetrics(state.steps),
+    final_metrics: metrics,
     extra: {
       openclaw: {
         session_key: params.node.key,
@@ -576,7 +587,18 @@ export function mapFamilyToAtif(family: SessionFamilySnapshot): MappingResult {
   const root = family.nodes.get(family.rootKey);
   if (!root) throw new Error("Session family root is missing");
   const diagnostics: Diagnostic[] = [...family.diagnostics];
-  const trajectory = buildNode({ family, node: root, visiting: new Set(), diagnostics });
+  const nodeMetrics = new Map<string, AtifFinalMetrics>();
+  const trajectory = buildNode({
+    family,
+    node: root,
+    visiting: new Set(),
+    diagnostics,
+    nodeMetrics,
+  });
+  for (const node of family.nodes.values()) {
+    if (nodeMetrics.has(node.key)) continue;
+    buildNode({ family, node, visiting: new Set(), diagnostics, nodeMetrics });
+  }
   validateAtifTrajectory(trajectory);
-  return { trajectory, diagnostics };
+  return { trajectory, diagnostics, nodeMetrics };
 }

@@ -45,7 +45,7 @@ export interface ExportReceipt {
   legacyMigration?: {
     sourceFingerprintBefore: string;
     sourceFingerprintAfter: string;
-    commands: { mode: string; stdoutSha256: string; stderrSha256: string }[];
+    commands: { mode: string; evidenceSha256: string }[];
   };
   validation: {
     localAtif: true;

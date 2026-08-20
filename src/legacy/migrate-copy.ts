@@ -5,11 +5,12 @@ import { isAbsolute, join, relative, resolve } from "node:path";
 import { parseStructuredOutput } from "../openclaw/capabilities.js";
 import { type CommandOptions, runOpenClaw } from "../openclaw/process.js";
 import { compareCodeUnits } from "../ordering.js";
+import { stableCompactStringify } from "../stable-json.js";
 
 export interface LegacyMigrationReceipt {
   sourceFingerprintBefore: string;
   sourceFingerprintAfter: string;
-  commands: { mode: string; stdoutSha256: string; stderrSha256: string }[];
+  commands: { mode: string; evidenceSha256: string }[];
 }
 
 async function assertNoSymlinks(root: string, current = root): Promise<void> {
@@ -135,16 +136,23 @@ export async function prepareLegacyMigrationCopy(params: {
       ];
   for (const invocation of invocations) {
     const result = await runOpenClaw(params.executable, invocation.args, commandOptions);
+    let sessionCount: number | undefined;
     if (invocation.mode === "sessions-list-verify") {
       const listing = parseStructuredOutput(result.stdout);
       if (!Array.isArray(listing.sessions)) {
         throw new Error("Migrated legacy copy did not produce a public session listing");
       }
+      sessionCount = listing.sessions.length;
     }
     commands.push({
       mode: invocation.mode,
-      stdoutSha256: digest(result.stdout),
-      stderrSha256: digest(result.stderr),
+      evidenceSha256: digest(
+        stableCompactStringify({
+          mode: invocation.mode,
+          status: "succeeded",
+          ...(sessionCount !== undefined ? { sessionCount } : {}),
+        }),
+      ),
     });
   }
   const after = await treeFingerprint(source);

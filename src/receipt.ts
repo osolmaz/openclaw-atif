@@ -1,6 +1,6 @@
 /* eslint-disable complexity -- Metric scope aggregation checks each optional field. */
 import { createHash } from "node:crypto";
-import type { AtifTrajectory } from "./atif/schema.js";
+import type { AtifFinalMetrics, AtifTrajectory } from "./atif/schema.js";
 import { type Diagnostic, deduplicateDiagnostics } from "./diagnostics.js";
 import type { LegacyMigrationReceipt } from "./legacy/migrate-copy.js";
 import type { SessionFamilySnapshot } from "./models/family.js";
@@ -11,24 +11,23 @@ import { OPENCLAW_BUNDLE_SCHEMA, OPENCLAW_BUNDLE_VERSION } from "./version.js";
 
 const HARBOR_CONFORMANCE_COMMIT = "c3ce0c60bbd2fd1888b327efcc880dbd86d8b7cf";
 
-function addMetrics(total: MetricTotals, trajectory: AtifTrajectory): void {
-  const metrics = trajectory.final_metrics;
-  total.steps += metrics?.total_steps ?? trajectory.steps.length;
-  if (metrics?.total_prompt_tokens !== undefined)
+function addMetrics(total: MetricTotals, metrics: AtifFinalMetrics): void {
+  total.steps += metrics.total_steps ?? 0;
+  if (metrics.total_prompt_tokens !== undefined)
     total.promptTokens = (total.promptTokens ?? 0) + metrics.total_prompt_tokens;
-  if (metrics?.total_completion_tokens !== undefined)
+  if (metrics.total_completion_tokens !== undefined)
     total.completionTokens = (total.completionTokens ?? 0) + metrics.total_completion_tokens;
-  if (metrics?.total_cached_tokens !== undefined)
+  if (metrics.total_cached_tokens !== undefined)
     total.cachedTokens = (total.cachedTokens ?? 0) + metrics.total_cached_tokens;
-  if (metrics?.total_cost_usd !== undefined)
+  if (metrics.total_cost_usd !== undefined)
     total.costUsd = (total.costUsd ?? 0) + metrics.total_cost_usd;
-  for (const child of trajectory.subagent_trajectories ?? []) addMetrics(total, child);
 }
 
 export function buildReceipt(params: {
   family: SessionFamilySnapshot;
   trajectory: AtifTrajectory;
   diagnostics: readonly Diagnostic[];
+  nodeMetrics: ReadonlyMap<string, AtifFinalMetrics>;
   legacyMigration?: LegacyMigrationReceipt;
 }): ExportReceipt {
   const root = params.family.nodes.get(params.family.rootKey);
@@ -36,7 +35,7 @@ export function buildReceipt(params: {
     throw new Error("Cannot build receipt without root identity");
   const diagnostics = deduplicateDiagnostics(params.diagnostics);
   const familyMetrics: MetricTotals = { steps: 0 };
-  addMetrics(familyMetrics, params.trajectory);
+  for (const metrics of params.nodeMetrics.values()) addMetrics(familyMetrics, metrics);
   const trajectorySha256 = createHash("sha256")
     .update(stableStringify(params.trajectory))
     .digest("hex");
@@ -79,7 +78,7 @@ export function buildReceipt(params: {
       listing: relationship.listing,
       ...(relationship.spawn ? { toolCallId: relationship.spawn.toolCallId } : {}),
       referenceStatus: ["native-subagent", "acp-child"].includes(relationship.kind)
-        ? relationship.spawn && params.family.nodes.has(relationship.childKey)
+        ? relationship.spawn?.eventId && params.family.nodes.has(relationship.childKey)
           ? "resolved"
           : "unresolved"
         : "not-applicable",
