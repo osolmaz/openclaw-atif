@@ -86,7 +86,7 @@ export async function loadCapturedFamilyFromGraph(
     if (nodes.has(graphNode.sessionKey))
       throw new Error(`Duplicate bundle graph session: ${graphNode.sessionKey}`);
     const bundle = await loadOpenClawBundle(await resolveBundle(bundleRoot, graphNode.bundleDir));
-    if (bundle.manifest.sessionKey && bundle.manifest.sessionKey !== graphNode.sessionKey)
+    if (bundle.observedSessionKey && bundle.observedSessionKey !== graphNode.sessionKey)
       throw new Error(`Bundle graph key mismatch: ${graphNode.sessionKey}`);
     nodes.set(graphNode.sessionKey, {
       key: graphNode.sessionKey,

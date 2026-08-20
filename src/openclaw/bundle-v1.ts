@@ -117,6 +117,12 @@ export async function loadOpenClawBundle(
   ) {
     throw new Error("Bundle event counts do not match manifest");
   }
+  const eventSessionKeys = new Set(
+    events.flatMap((event) => (event.sessionKey === undefined ? [] : [event.sessionKey])),
+  );
+  if (eventSessionKeys.size > 1)
+    throw new Error("Bundle events contain conflicting sessionKey values");
+  const eventSessionKey = [...eventSessionKeys][0];
   for (const [index, event] of events.entries()) {
     if (event.seq !== index + 1)
       throw new Error(`Bundle event sequence is not contiguous at row ${String(index + 1)}`);
@@ -142,6 +148,9 @@ export async function loadOpenClawBundle(
   return {
     directory: root,
     manifest,
+    ...((manifest.sessionKey ?? eventSessionKey)
+      ? { observedSessionKey: manifest.sessionKey ?? eventSessionKey }
+      : {}),
     events,
     sessionBranch: parseJsonObject(
       requiredContent(contents, "session-branch.json"),

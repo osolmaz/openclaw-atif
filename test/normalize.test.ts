@@ -1,3 +1,4 @@
+/* eslint-disable complexity -- The normalization test checks all completeness classes in one fixture. */
 import { describe, expect, it } from "vitest";
 import type { CapturedFamily } from "../src/models/family.js";
 import { normalizeFamily } from "../src/normalize/family.js";
@@ -58,8 +59,14 @@ describe("normalizeFamily completeness", () => {
               },
               events,
               sessionBranch: {},
-              supplemental: new Map(),
-              sourceHashes: { "manifest.json": "volatile-one", "events.jsonl": "stable" },
+              supplemental: new Map([
+                ["metadata.json", { generatedAt: "one", facts: { stable: true } }],
+              ]),
+              sourceHashes: {
+                "manifest.json": "volatile-one",
+                "metadata.json": "volatile-metadata-one",
+                "events.jsonl": "stable",
+              },
             },
           },
         ],
@@ -87,14 +94,23 @@ describe("normalizeFamily completeness", () => {
     const normalizedNode = normalized.nodes.get(key);
     expect(normalizedNode?.sourceHashes["manifest.json"]).toBeUndefined();
     const semanticManifestHash = normalizedNode?.sourceHashes["manifest.semantic-v1"];
+    const semanticMetadataHash = normalizedNode?.sourceHashes["metadata.json#semantic-v1"];
     expect(semanticManifestHash).toMatch(/^[a-f0-9]{64}$/u);
+    expect(semanticMetadataHash).toMatch(/^[a-f0-9]{64}$/u);
 
     const bundle = captured.nodes.get(key)?.bundle;
     if (!bundle) throw new Error("test bundle is missing");
     bundle.manifest.generatedAt = "later";
-    bundle.sourceHashes = { "manifest.json": "volatile-two", "events.jsonl": "stable" };
-    expect(normalizeFamily(captured).nodes.get(key)?.sourceHashes["manifest.semantic-v1"]).toBe(
-      semanticManifestHash,
-    );
+    bundle.supplemental = new Map([
+      ["metadata.json", { generatedAt: "two", facts: { stable: true } }],
+    ]);
+    bundle.sourceHashes = {
+      "manifest.json": "volatile-two",
+      "metadata.json": "volatile-metadata-two",
+      "events.jsonl": "stable",
+    };
+    const repeatedHashes = normalizeFamily(captured).nodes.get(key)?.sourceHashes;
+    expect(repeatedHashes?.["manifest.semantic-v1"]).toBe(semanticManifestHash);
+    expect(repeatedHashes?.["metadata.json#semantic-v1"]).toBe(semanticMetadataHash);
   });
 });

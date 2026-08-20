@@ -1,3 +1,4 @@
+/* eslint-disable max-lines-per-function -- The mapper edge suite keeps one shared synthetic family helper. */
 import { describe, expect, it } from "vitest";
 import { mapFamilyToAtif } from "../src/atif/mapper.js";
 import type { SessionFamilySnapshot } from "../src/models/family.js";
@@ -215,6 +216,32 @@ describe("ATIF mapper edge cases", () => {
     expect(result.trajectory.steps[0]?.tool_calls?.[0]?.extra?.arguments_status).toBe("unparsed");
     expect(result.trajectory.steps[1]?.tool_calls?.[0]?.arguments).toEqual({ ok: true });
     expect(result.diagnostics.some((item) => item.code === "duplicate-tool-call-id")).toBe(true);
+  });
+
+  it("omits and diagnoses tool calls without source identifiers", () => {
+    const events = [
+      event({
+        seq: 1,
+        source: "transcript",
+        type: "assistant.message",
+        sessionId: "session",
+        entryId: "assistant",
+        data: { message: { content: "calling" } },
+      }),
+      event({
+        seq: 2,
+        source: "transcript",
+        type: "tool.call",
+        sessionId: "session",
+        entryId: "assistant",
+        data: { assistantEntryId: "assistant", arguments: {} },
+      }),
+    ];
+    const result = mapFamilyToAtif(family(events));
+    expect(result.trajectory.steps[0]?.tool_calls).toBeUndefined();
+    expect(result.diagnostics.some((item) => item.code === "tool-call-identity-unavailable")).toBe(
+      true,
+    );
   });
 
   it("omits malformed metrics and preserves observed zero and cache writes", () => {
