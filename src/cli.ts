@@ -130,6 +130,13 @@ function printResult(result: ExportResult, json: boolean): void {
   }
 }
 
+export function completedExitCode(
+  status: "complete" | "partial",
+  signalExit: number | undefined,
+): number {
+  return signalExit ?? (status === "complete" ? 0 : 2);
+}
+
 export async function runCli(args: readonly string[]): Promise<number> {
   const parsed = parseCliArgs(args);
   if (parsed.command === "help") {
@@ -188,8 +195,10 @@ export async function runCli(args: readonly string[]): Promise<number> {
               timeoutMs: boundedInteger(parsed.values, "timeout-ms", 1),
             },
           });
+    const exitCode = completedExitCode(result.status, signalExit);
+    if (signalExit) return exitCode;
     printResult(result, parsed.flags.has("json"));
-    return result.status === "complete" ? 0 : 2;
+    return exitCode;
   } catch (error) {
     if (signalExit) return signalExit;
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);

@@ -26,6 +26,12 @@ describe("relationship kinds and structured payloads", () => {
     );
     expect(
       classifyRelationship(
+        { key: "fork-context-child", sessionId: "x", forkedFromParent: true },
+        { spawn },
+      ),
+    ).toBe("native-subagent");
+    expect(
+      classifyRelationship(
         { key: "visible-child", sessionId: "x" },
         { spawn: { ...spawn, visible: true } },
       ),

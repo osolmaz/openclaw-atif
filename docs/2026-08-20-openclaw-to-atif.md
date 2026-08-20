@@ -37,7 +37,7 @@ Only an exact successful structured `sessions_spawn` result can attach a `subage
 
 Native subagents and ACP children can be recursively embedded. Listing-only descendants are embedded without an invented step reference and make the export partial.
 
-Forks, visible sessions, cron runs, adopted sessions, and session rotations remain distinct relationship kinds.
+Forks, visible sessions, cron runs, adopted sessions, and session rotations remain distinct relationship kinds. A successful `sessions_spawn` child remains a subagent when OpenClaw also marks its copied transcript context as forked; copied context does not replace the delegation relationship.
 
 An ACP child represents the OpenClaw wrapper transcript. It does not claim to contain the external harness's hidden internal trajectory.
 

@@ -493,7 +493,6 @@ function buildNode(params: {
     steps: [],
     ownerByCallId: new Map(),
     diagnostics: [],
-    ...(agent.model_name ? { modelName: agent.model_name } : {}),
   };
   const calls = callsByAssistantEntry(params.node.transcriptEvents, params.node, state);
   const events = [
@@ -502,6 +501,13 @@ function buildNode(params: {
     ...params.node.exportEvents,
   ].sort((left, right) => left.seq - right.seq);
   for (const event of events) {
+    if (event.type === "trace.metadata") {
+      const modelInfo = asRecord(event.data?.model);
+      const model = readNonBlankString(modelInfo?.name);
+      const provider = readNonBlankString(modelInfo?.provider);
+      if (model)
+        state.modelName = provider && !model.includes("/") ? `${provider}/${model}` : model;
+    }
     if (event.type === "session.model_change") {
       const model = readNonBlankString(event.data?.modelId);
       const provider = readNonBlankString(event.data?.provider);

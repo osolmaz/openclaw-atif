@@ -142,6 +142,11 @@ export function classifyRelationship(
 ): RelationshipKind {
   const kind = (row.kind ?? row.sessionKind ?? "").toLowerCase();
   if (evidence.spawn?.visible === true || kind.includes("visible")) return "visible-child";
+  if (evidence.spawn?.runtime === "acp" || (evidence.spawn !== undefined && isAcpListingRow(row)))
+    return "acp-child";
+  if (evidence.spawn) return "native-subagent";
+  if (kind.includes("spawn") && evidence.listing === true)
+    return isAcpListingRow(row) ? "acp-child" : "native-subagent";
   if (
     row.forkedFromParent === true ||
     (row.forkSource !== undefined && row.forkSource !== null) ||
@@ -149,15 +154,10 @@ export function classifyRelationship(
     kind.includes("fork")
   )
     return "fork";
-  if (evidence.spawn?.runtime === "acp" || isAcpListingRow(row)) return "acp-child";
+  if (isAcpListingRow(row)) return "acp-child";
   if (kind.includes("cron")) return "cron";
   if (kind.includes("adopt")) return "adopted";
-  if (
-    kind.includes("subagent") ||
-    (kind.includes("spawn") && evidence.listing === true) ||
-    evidence.spawn !== undefined
-  )
-    return "native-subagent";
+  if (kind.includes("subagent")) return "native-subagent";
   return "unknown-child";
 }
 
