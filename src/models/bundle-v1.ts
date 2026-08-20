@@ -89,9 +89,12 @@ export const sessionListingRowSchema = z
     spawnedBy: z.string().optional(),
     forkSourceSessionId: z.string().optional(),
     forkSourceEntryId: z.string().optional(),
+    forkSource: z.unknown().optional(),
+    forkedFromParent: z.boolean().optional(),
     archivedAt: z.number().optional(),
     agentHarnessId: z.string().optional(),
     acpOwned: z.boolean().optional(),
+    acpRuntime: z.unknown().optional(),
     model: z.string().optional(),
     modelProvider: z.string().optional(),
   })

@@ -7,7 +7,9 @@ import {
   readdir,
   readFile,
   rename,
+  rm,
   stat,
+  symlink,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -24,12 +26,39 @@ describe("atomic writer", () => {
     const root = await mkdtemp(join(tmpdir(), "openclaw-atif-writer-"));
     const path = join(root, "nested", "trajectory.json");
     const first = await writeAtomicFile(path, "one\n");
+    await chmod(path, 0o644);
     const second = await writeAtomicFile(path, "one\n");
     expect(first.idempotent).toBe(false);
     expect(second.idempotent).toBe(true);
     expect((await stat(path)).mode & 0o777).toBe(0o600);
     expect((await stat(join(root, "nested"))).mode & 0o777).toBe(0o700);
     expect(await readdir(join(root, "nested"))).toEqual(["trajectory.json"]);
+  });
+
+  it("restores private modes and rejects symlinks on idempotent directory writes", async () => {
+    const root = await mkdtemp(join(tmpdir(), "openclaw-atif-writer-"));
+    const path = join(root, "trajectory");
+    const files = new Map([["trajectory.json", "same\n"]]);
+    await writeAtomicDirectory(path, files);
+    await chmod(path, 0o755);
+    await chmod(join(path, "trajectory.json"), 0o644);
+    const result = await writeAtomicDirectory(path, files);
+    expect(result[0]?.idempotent).toBe(true);
+    expect((await stat(path)).mode & 0o777).toBe(0o700);
+    expect((await stat(join(path, "trajectory.json"))).mode & 0o777).toBe(0o600);
+
+    const external = join(root, "external.json");
+    await writeFile(external, "same\n");
+    await rm(join(path, "trajectory.json"));
+    await symlink(external, join(path, "trajectory.json"));
+    await expect(writeAtomicDirectory(path, files)).rejects.toBeInstanceOf(OutputConflictError);
+
+    const externalDirectory = join(root, "external-directory");
+    await mkdir(externalDirectory);
+    await writeFile(join(externalDirectory, "trajectory.json"), "same\n");
+    await rm(path, { recursive: true, force: true });
+    await symlink(externalDirectory, path);
+    await expect(writeAtomicDirectory(path, files)).rejects.toBeInstanceOf(OutputConflictError);
   });
 
   it("refuses conflicts and replaces only when forced", async () => {

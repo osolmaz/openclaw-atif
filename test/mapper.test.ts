@@ -16,7 +16,9 @@ async function buildFamily(options: { listingOnly?: boolean; childKey?: string }
     name: "root",
     sessionId: "root-session",
     sessionKey: "agent:main:main",
-    events: rootEvents("root-session", childKey),
+    events: rootEvents("root-session", childKey)
+      .filter((item) => !options.listingOnly || item.type !== "tool.result")
+      .map((item, index) => ({ ...item, seq: index + 1 })),
   });
   await writeBundle({
     root,
@@ -59,7 +61,7 @@ describe("mapFamilyToAtif", () => {
     expect(spawnStep?.observation?.results[0]?.subagent_trajectory_ref?.[0]?.trajectory_id).toBe(
       child?.trajectory_id,
     );
-    expect(first.trajectory.final_metrics?.total_prompt_tokens).toBe(12);
+    expect(first.trajectory.final_metrics?.total_prompt_tokens).toBe(13);
     expect(child?.final_metrics?.total_prompt_tokens).toBe(3);
     expect(first.trajectory.final_metrics?.total_prompt_tokens).not.toBe(15);
   });

@@ -1,4 +1,5 @@
 /* eslint-disable complexity -- Source-format dispatch is intentionally explicit. */
+import { isAcpListingRow } from "../capture/relationships.js";
 import type { Diagnostic } from "../diagnostics.js";
 import {
   asRecord,
@@ -113,8 +114,8 @@ function metricsFromMessage(message: Record<string, unknown>): AtifMetrics | und
   const costValue = asRecord(usage.cost)?.total ?? usage.cost;
   const cost = metricNumber(costValue);
   const metrics: AtifMetrics = {};
-  if (input !== undefined || cacheRead !== undefined)
-    metrics.prompt_tokens = Math.trunc((input ?? 0) + (cacheRead ?? 0));
+  if (input !== undefined || cacheRead !== undefined || cacheWrite !== undefined)
+    metrics.prompt_tokens = Math.trunc((input ?? 0) + (cacheRead ?? 0) + (cacheWrite ?? 0));
   if (output !== undefined) metrics.completion_tokens = Math.trunc(output);
   if (cacheRead !== undefined) metrics.cached_tokens = Math.trunc(cacheRead);
   if (cost !== undefined) metrics.cost_usd = cost;
@@ -456,7 +457,7 @@ function buildNode(params: {
   const state: StepState = {
     steps: [],
     ownerByCallId: new Map(),
-    diagnostics: [...params.node.diagnostics],
+    diagnostics: [],
   };
   const events = [
     ...params.node.runtimeEvents,
@@ -504,7 +505,7 @@ function buildNode(params: {
         session_id: params.node.sessionId,
         leaf_id: params.node.leafId,
         source_redacted: true,
-        wrapper_only: params.node.row.acpOwned === true || params.node.key.includes(":acp:"),
+        wrapper_only: isAcpListingRow(params.node.row),
         bundle_warning_codes: params.node.bundleWarnings,
         runtime: runtimeProvenance(params.node),
         relationships: otherRelationships.map((relationship) => ({

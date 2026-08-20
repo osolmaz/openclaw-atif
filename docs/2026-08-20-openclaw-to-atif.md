@@ -43,7 +43,7 @@ An ACP child represents the OpenClaw wrapper transcript. It does not claim to co
 
 ## Metrics
 
-Per-step metrics use finite provider-reported values. Prompt and cache token handling follows the OpenClaw usage contract and is tested against raw fixtures. Cache writes remain in `extra`.
+Per-step metrics use finite provider-reported values. `prompt_tokens` is the sum of uncached input, cache reads, and cache writes under the OpenClaw usage contract. Cache reads also populate `cached_tokens`, and cache writes remain visible in `extra`.
 
 Each trajectory's final metrics cover only its own steps. The receipt contains a separately scoped family aggregate.
 

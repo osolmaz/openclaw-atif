@@ -84,12 +84,30 @@ export function extractSpawnEvidence(events: readonly TrajectoryEvent[]): SpawnE
   );
 }
 
-export function classifyRelationship(row: SessionListingRow): RelationshipKind {
+export function isAcpListingRow(row: SessionListingRow): boolean {
   const kind = (row.kind ?? row.sessionKind ?? "").toLowerCase();
-  if (row.acpOwned === true || row.key.includes(":acp:") || kind.includes("acp"))
-    return "acp-child";
-  if (row.key.includes(":subagent:") || kind.includes("subagent")) return "native-subagent";
-  if (row.forkSourceSessionId || kind.includes("fork")) return "fork";
+  return (
+    row.acpOwned === true ||
+    row.acpRuntime === true ||
+    (typeof row.acpRuntime === "object" && row.acpRuntime !== null) ||
+    kind.includes("acp")
+  );
+}
+
+export function classifyRelationship(
+  row: SessionListingRow,
+  hasSpawnEvidence = false,
+): RelationshipKind {
+  const kind = (row.kind ?? row.sessionKind ?? "").toLowerCase();
+  if (
+    row.forkedFromParent === true ||
+    (row.forkSource !== undefined && row.forkSource !== null) ||
+    row.forkSourceSessionId ||
+    kind.includes("fork")
+  )
+    return "fork";
+  if (isAcpListingRow(row)) return "acp-child";
+  if (kind.includes("subagent") || hasSpawnEvidence) return "native-subagent";
   if (kind.includes("visible")) return "visible-child";
   if (kind.includes("cron")) return "cron";
   if (kind.includes("adopt")) return "adopted";
@@ -116,7 +134,7 @@ export function discoverRelationships(params: {
     return {
       parentKey: params.parent.key,
       childKey,
-      kind: row ? classifyRelationship(row) : "unknown-child",
+      kind: row ? classifyRelationship(row, spawnByChild.has(childKey)) : "unknown-child",
       listing:
         row !== undefined &&
         (row.parentSessionKey === params.parent.key || row.spawnedBy === params.parent.key),
