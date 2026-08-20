@@ -9,7 +9,13 @@ describe("normalizeFamily completeness", () => {
     const key = "agent:main:main";
     const child = "agent:main:visible:child";
     const events = [
-      event({ seq: 1, source: "runtime", type: "runtime.future", sessionId: "session" }),
+      event({
+        seq: 1,
+        source: "runtime",
+        type: "runtime.future",
+        sessionId: "session",
+        data: { truncated: true, droppedFields: ["payload"] },
+      }),
       event({
         seq: 2,
         source: "transcript",
@@ -84,6 +90,7 @@ describe("normalizeFamily completeness", () => {
         "openclaw-invalid-session-row",
         "source-fallback-timestamp",
         "unsupported-runtime-event",
+        "source-event-truncated",
         "unsupported-transcript-event",
         "unsupported-export-event",
         "relationship-not-represented-in-atif",

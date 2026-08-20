@@ -45,6 +45,15 @@ function withoutGeneratedAt(value: unknown): unknown {
   );
 }
 
+function eventHasTruncationMarker(event: OpenClawBundleV1["events"][number]): boolean {
+  const data = event.data;
+  if (!data) return false;
+  if (data.truncated === true || (typeof data.truncated === "number" && data.truncated > 0))
+    return true;
+  if (Array.isArray(data.droppedFields)) return data.droppedFields.length > 0;
+  return typeof data.droppedFields === "number" && data.droppedFields > 0;
+}
+
 function deterministicSourceHashes(bundle: OpenClawBundleV1): Record<string, string> {
   const volatileFiles = new Set<string>(["manifest.json", ...VOLATILE_GENERATED_FILES]);
   const hashes = Object.fromEntries(
@@ -94,6 +103,14 @@ export function normalizeFamily(captured: CapturedFamily): SessionFamilySnapshot
       });
     }
     for (const event of source.bundle.events) {
+      if (eventHasTruncationMarker(event)) {
+        diagnostics.push({
+          code: "source-event-truncated",
+          message: "OpenClaw marked source event fields as truncated or dropped",
+          nodeKey: key,
+          eventId: event.entryId,
+        });
+      }
       const known =
         event.source === "transcript"
           ? KNOWN_TRANSCRIPT_EVENTS.has(event.type)

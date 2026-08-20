@@ -97,8 +97,9 @@ export function extractSpawnEvidence(events: readonly TrajectoryEvent[]): SpawnE
       readNonBlankString(message.toolCallId) ?? readNonBlankString(message.tool_call_id);
     if (!callId) continue;
     const call = calls.get(callId);
-    const toolName = readNonBlankString(message.toolName) ?? call?.name;
-    if (toolName !== "sessions_spawn") continue;
+    const resultToolName = readNonBlankString(message.toolName);
+    if (call?.name !== "sessions_spawn") continue;
+    if (resultToolName && resultToolName !== call.name) continue;
     const payloads = toolResultPayload(message);
     if (payloads.some(hasFailureMarker)) continue;
     const children = new Set<string>();
@@ -108,8 +109,8 @@ export function extractSpawnEvidence(events: readonly TrajectoryEvent[]): SpawnE
         toolCallId: callId,
         childSessionKey,
         eventId: event.entryId,
-        ...(call?.runtime ? { runtime: call.runtime } : {}),
-        ...(call?.visible !== undefined ? { visible: call.visible } : {}),
+        ...(call.runtime ? { runtime: call.runtime } : {}),
+        ...(call.visible !== undefined ? { visible: call.visible } : {}),
       });
     }
   }

@@ -13,21 +13,31 @@ export function parseSessionListing(value: unknown): SessionListing {
   return listing;
 }
 
+export type ExportableSessionListingRow = SessionListingRow & { sessionId: string };
+
+function matchesSelection(
+  row: SessionListingRow,
+  selection: { sessionKey?: string; sessionId?: string },
+): boolean {
+  if (selection.sessionKey !== undefined) return row.key === selection.sessionKey;
+  return row.sessionId === selection.sessionId;
+}
+
 export function selectRoot(
   listing: SessionListing,
   selection: { sessionKey?: string; sessionId?: string },
-): SessionListingRow {
+): ExportableSessionListingRow {
   if ((selection.sessionKey ? 1 : 0) + (selection.sessionId ? 1 : 0) !== 1) {
     throw new Error("Select exactly one root with sessionKey or sessionId");
   }
-  const matches = selection.sessionKey
-    ? listing.sessions.filter((row) => row.key === selection.sessionKey)
-    : listing.sessions.filter((row) => row.sessionId === selection.sessionId);
+  const matches = listing.sessions.filter((row) => matchesSelection(row, selection));
   if (matches.length === 0) throw new Error("OpenClaw root session was not found");
   if (matches.length !== 1) throw new Error("OpenClaw root session selection is ambiguous");
   const match = matches[0];
   if (!match) throw new Error("OpenClaw root session was not found");
-  return match;
+  if (typeof match.sessionId !== "string")
+    throw new Error("OpenClaw root session has no concrete session ID");
+  return match as ExportableSessionListingRow;
 }
 
 function fingerprintRow(row: SessionListingRow): Record<string, unknown> {
