@@ -2,7 +2,7 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { parseCliArgs, runCli } from "../src/cli.js";
+import { completedExitCode, parseCliArgs, runCli } from "../src/cli.js";
 import { childEvents, writeBundle } from "./helpers.js";
 
 describe("CLI", () => {
@@ -61,6 +61,13 @@ describe("CLI", () => {
     expect(code).toBe(0);
     expect(String(stdout.mock.calls.at(-1)?.[0])).toContain('"status":"complete"');
     stdout.mockRestore();
+  });
+
+  it("gives a received signal priority over a completed export status", () => {
+    expect(completedExitCode("complete", 130)).toBe(130);
+    expect(completedExitCode("partial", 143)).toBe(143);
+    expect(completedExitCode("complete", undefined)).toBe(0);
+    expect(completedExitCode("partial", undefined)).toBe(2);
   });
 
   it("returns one for invalid command input", async () => {

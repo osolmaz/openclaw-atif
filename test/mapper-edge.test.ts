@@ -145,6 +145,37 @@ describe("ATIF mapper edge cases", () => {
     expect(assistant?.reasoning_effort).toBe("high");
   });
 
+  it("does not backfill earlier steps from later model metadata", () => {
+    const events = [
+      event({
+        seq: 1,
+        source: "transcript",
+        type: "assistant.message",
+        sessionId: "session",
+        entryId: "before-model",
+        data: { message: { content: "before" } },
+      }),
+      event({
+        seq: 2,
+        source: "runtime",
+        type: "trace.metadata",
+        sessionId: "session",
+        data: { model: { provider: "p", name: "new" } },
+      }),
+      event({
+        seq: 3,
+        source: "transcript",
+        type: "assistant.message",
+        sessionId: "session",
+        entryId: "after-model",
+        data: { message: { content: "after" } },
+      }),
+    ];
+    const result = mapFamilyToAtif(family(events));
+    expect(result.trajectory.steps[0]?.model_name).toBeUndefined();
+    expect(result.trajectory.steps[1]?.model_name).toBe("p/new");
+  });
+
   it("omits image references that would be invalid outside the source bundle", () => {
     const events = [
       event({
