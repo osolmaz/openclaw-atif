@@ -17,7 +17,7 @@ Until a package release exists, install a tagged GitHub release:
 npm install --global github:osolmaz/openclaw-atif#<tag>
 ```
 
-Node.js 22 or newer is required.
+Node.js 24.11 or newer in the Node.js 24 release line is required.
 
 ## Export a session family
 
