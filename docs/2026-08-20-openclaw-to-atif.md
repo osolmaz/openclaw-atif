@@ -13,7 +13,7 @@ date: "2026-08-20"
 - `tool.result` attaches to the agent step with the exact matching tool call ID.
 - An unmatched result becomes a system observation with no source call ID and a warning.
 
-Observed empty content remains empty. The mapper does not add explanatory placeholders. Image references are omitted with diagnostics because the export does not copy source assets and must not emit dangling or machine-local paths.
+Observed empty content remains empty. The mapper does not add explanatory placeholders. Image references are omitted with diagnostics because the export does not copy source assets and must not emit dangling or machine-local paths. Unknown audio, file, or future content blocks are also omitted with explicit diagnostics, so the export is partial rather than falsely complete.
 
 ## Runtime facts
 
