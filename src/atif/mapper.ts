@@ -38,6 +38,8 @@ type StepState = {
   steps: AtifStep[];
   ownerByCallId: Map<string, AtifStep>;
   diagnostics: Diagnostic[];
+  modelName?: string;
+  reasoningEffort?: string;
 };
 
 function contentParts(
@@ -205,11 +207,17 @@ function messageStep(
   }
   if (event.type !== "assistant.message") return;
   const toolCalls = event.entryId ? calls.get(event.entryId) : undefined;
+  const stepModel = modelName(message) ?? state.modelName;
+  const reasoningEffort =
+    readNonBlankString(message.thinkingLevel) ??
+    readNonBlankString(message.reasoningEffort) ??
+    state.reasoningEffort;
   const step = pushStep(state, {
     source: "agent",
     message: contentParts(message.content, state.diagnostics, node.key, event.entryId),
     ...(timestamp(event) ? { timestamp: timestamp(event) } : {}),
-    ...(modelName(message) ? { model_name: modelName(message) } : {}),
+    ...(stepModel ? { model_name: stepModel } : {}),
+    ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
     ...(reasoningContent(message.content)
       ? { reasoning_content: reasoningContent(message.content) }
       : {}),
@@ -454,10 +462,12 @@ function buildNode(params: {
     refsByCall.set(relationship.spawn.toolCallId, refs);
   }
   const calls = callsByAssistantEntry(params.node.transcriptEvents);
+  const agent = agentForNode(params.node, params.family.openclawVersion);
   const state: StepState = {
     steps: [],
     ownerByCallId: new Map(),
     diagnostics: [],
+    ...(agent.model_name ? { modelName: agent.model_name } : {}),
   };
   const events = [
     ...params.node.runtimeEvents,
@@ -465,6 +475,16 @@ function buildNode(params: {
     ...params.node.exportEvents,
   ].sort((left, right) => left.seq - right.seq);
   for (const event of events) {
+    if (event.type === "session.model_change") {
+      const model = readNonBlankString(event.data?.modelId);
+      const provider = readNonBlankString(event.data?.provider);
+      if (model)
+        state.modelName = provider && !model.includes("/") ? `${provider}/${model}` : model;
+    }
+    if (event.type === "session.thinking_level_change") {
+      const effort = readNonBlankString(event.data?.thinkingLevel);
+      if (effort) state.reasoningEffort = effort;
+    }
     if (event.type === "user.message" || event.type === "assistant.message")
       messageStep(event, params.node, state, calls);
     else if (event.type === "tool.result") resultStep(event, params.node, state, refsByCall);
@@ -496,7 +516,7 @@ function buildNode(params: {
       leafId: params.node.leafId,
       profile: params.family.profile,
     }),
-    agent: agentForNode(params.node, params.family.openclawVersion),
+    agent,
     steps: state.steps,
     final_metrics: finalMetrics(state.steps),
     extra: {

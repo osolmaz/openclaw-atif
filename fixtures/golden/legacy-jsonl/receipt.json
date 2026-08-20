@@ -17,7 +17,7 @@
       "sessionKey": "agent:main:main",
       "sourceHashes": {
         "events.jsonl": "a2a5e7c1183e740953948fb43546968c80c930b24cb9cbe9760439a00b6c4ace",
-        "manifest.json": "fb00d2c25a3a5125f7a823054edfd8c65c014704d0d59f89164f4c3b6cf535b7",
+        "manifest.semantic-v1": "8785425c292eda4292da22cf63dad29f3862d06fe7bbe00eb6e692afdec8dbdc",
         "session-branch.json": "7ad88626ccb68fbee8098c52bfb3234031ca2e93a3a47af6e5383c1f63162b22"
       }
     },
@@ -30,7 +30,7 @@
       "sessionKey": "agent:main:subagent:child",
       "sourceHashes": {
         "events.jsonl": "4ab9a51930a8ab1e92bb1e4f5d075ca1bc4ebf1c8285663abc1a1df0ee46a05e",
-        "manifest.json": "2d7b80cda6a848cf03284c744cff3bb98404bfc860d6e549a29a130debaac552",
+        "manifest.semantic-v1": "d03cc7a4654b09551a472b3eb4701a25da47d5b4d9666c7a88c1b68b23d3d648",
         "session-branch.json": "e07054f8c9a1a6074c4d3226ac544dc71107794f1b0d1561c7d7c9d6c77a05b0"
       }
     }

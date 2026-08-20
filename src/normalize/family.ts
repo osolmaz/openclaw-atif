@@ -1,6 +1,9 @@
 /* eslint-disable complexity -- Completeness classification enumerates source cases. */
+import { createHash } from "node:crypto";
 import { type Diagnostic, deduplicateDiagnostics } from "../diagnostics.js";
+import type { OpenClawBundleV1 } from "../models/bundle-v1.js";
 import type { CapturedFamily, NormalizedNode, SessionFamilySnapshot } from "../models/family.js";
+import { stableCompactStringify } from "../stable-json.js";
 
 const KNOWN_TRANSCRIPT_EVENTS = new Set([
   "user.message",
@@ -27,6 +30,19 @@ const KNOWN_RUNTIME_EVENTS = new Set([
   "trace.artifacts",
   "session.ended",
 ]);
+
+function deterministicSourceHashes(bundle: OpenClawBundleV1): Record<string, string> {
+  const hashes = Object.fromEntries(
+    Object.entries(bundle.sourceHashes).filter(([name]) => name !== "manifest.json"),
+  );
+  const stableManifest = Object.fromEntries(
+    Object.entries(bundle.manifest).filter(([name]) => name !== "generatedAt"),
+  );
+  hashes["manifest.semantic-v1"] = createHash("sha256")
+    .update(stableCompactStringify(stableManifest))
+    .digest("hex");
+  return hashes;
+}
 
 export function normalizeFamily(captured: CapturedFamily): SessionFamilySnapshot {
   const relationshipsByParent = new Map<string, typeof captured.relationships>();
@@ -108,7 +124,7 @@ export function normalizeFamily(captured: CapturedFamily): SessionFamilySnapshot
       exportEvents: source.bundle.events.filter((event) => event.source === "export"),
       childRelationships,
       bundleWarnings: warningCodes,
-      sourceHashes: source.bundle.sourceHashes,
+      sourceHashes: deterministicSourceHashes(source.bundle),
       diagnostics: deduplicateDiagnostics(diagnostics),
     });
     familyDiagnostics.push(...diagnostics);

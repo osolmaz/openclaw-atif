@@ -31,6 +31,8 @@ The manifest must declare `traceSchema: openclaw-trajectory` and `schemaVersion:
 
 Optional metadata, artifacts, prompts, system prompt, and tools files are loaded only when the manifest lists them.
 
+Receipts hash stable source files directly. Because OpenClaw regenerates `manifest.generatedAt` for each capture, receipts use `manifest.semantic-v1`, a hash of the validated manifest without that volatile field. Raw bundle files remain private staging artifacts unless the caller explicitly keeps them.
+
 ## Completeness states
 
 - `complete`: the family was stable and all required facts and references were exported and validated.

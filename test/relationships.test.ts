@@ -22,6 +22,34 @@ describe("relationship discovery", () => {
     expect(relationships[0]?.spawn?.toolCallId).toBe("call-1");
   });
 
+  it("uses observed spawn mode and listing lineage instead of key shape", () => {
+    const parent = { key: "agent:main:main", sessionId: "root" };
+    const visible = {
+      key: "opaque-visible-child",
+      sessionId: "visible",
+      parentSessionKey: parent.key,
+      kind: "spawn-child",
+    };
+    const visibleEvents = rootEvents("root", visible.key).map((item) =>
+      item.type === "tool.call"
+        ? { ...item, data: { ...item.data, arguments: { visible: true } } }
+        : item,
+    );
+    expect(
+      discoverRelationships({ parent, rows: [parent, visible], events: visibleEvents })[0]?.kind,
+    ).toBe("visible-child");
+
+    const native = {
+      key: "agent:main:subagent:compacted",
+      sessionId: "native",
+      spawnedBy: parent.key,
+      kind: "spawn-child",
+    };
+    expect(discoverRelationships({ parent, rows: [parent, native], events: [] })[0]?.kind).toBe(
+      "native-subagent",
+    );
+  });
+
   it("supports ACP child relationships", () => {
     const parent = { key: "agent:main:main", sessionId: "root" };
     const child = {

@@ -59,7 +59,7 @@ describe("normalizeFamily completeness", () => {
               events,
               sessionBranch: {},
               supplemental: new Map(),
-              sourceHashes: {},
+              sourceHashes: { "manifest.json": "volatile-one", "events.jsonl": "stable" },
             },
           },
         ],
@@ -84,5 +84,17 @@ describe("normalizeFamily completeness", () => {
       ]),
     );
     expect(normalized.openclawExecutableSha256).toBe("abc");
+    const normalizedNode = normalized.nodes.get(key);
+    expect(normalizedNode?.sourceHashes["manifest.json"]).toBeUndefined();
+    const semanticManifestHash = normalizedNode?.sourceHashes["manifest.semantic-v1"];
+    expect(semanticManifestHash).toMatch(/^[a-f0-9]{64}$/u);
+
+    const bundle = captured.nodes.get(key)?.bundle;
+    if (!bundle) throw new Error("test bundle is missing");
+    bundle.manifest.generatedAt = "later";
+    bundle.sourceHashes = { "manifest.json": "volatile-two", "events.jsonl": "stable" };
+    expect(normalizeFamily(captured).nodes.get(key)?.sourceHashes["manifest.semantic-v1"]).toBe(
+      semanticManifestHash,
+    );
   });
 });

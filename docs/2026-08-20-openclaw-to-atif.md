@@ -31,7 +31,7 @@ Retained tails are not duplicated.
 
 Tool calls retain exact IDs, names, and JSON arguments. Results pair only by exact call ID. Malformed arguments remain raw source metadata instead of guessed JSON.
 
-Only an exact structured `sessions_spawn` result can attach a `subagent_trajectory_ref` to an observation.
+Only an exact structured `sessions_spawn` result can attach a `subagent_trajectory_ref` to an observation. The matching call arguments and typed listing lineage distinguish visible sessions, native subagents, and ACP children; key text alone does not decide the relationship.
 
 ## Subagents and other relationships
 
